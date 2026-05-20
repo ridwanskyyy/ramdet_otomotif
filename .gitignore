@@ -1,0 +1,11 @@
+# Mengabaikan file lingkungan privat Laravel
+backend_ramdet/.env
+backend_ramdet/storage/*.key
+
+# Mengabaikan folder build otomatis Flutter
+frontend_ramdet/.dart_tool/
+frontend_ramdet/.build/
+frontend_ramdet/.pub-cache/
+frontend_ramdet/build/
+frontend_ramdet/*.js
+frontend_ramdet/*.exe
