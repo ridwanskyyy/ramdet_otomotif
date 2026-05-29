@@ -15,10 +15,9 @@ class Product extends Model
         'description',
         'image_url',
         'price',
-        'category',
+        'category'
     ];
 
-    // Relasi: Product ini dimiliki oleh User
     public function user()
     {
         return $this->belongsTo(User::class);
