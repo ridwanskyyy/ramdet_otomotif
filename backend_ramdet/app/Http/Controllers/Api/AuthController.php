@@ -40,7 +40,7 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
-            return $this->sendError('Email atau password salah', 401);
+            return $this->sendError('Email atau password yang Anda masukkan salah', 401);
         }
 
         $data['access_token'] = $user->createToken('auth_token')->plainTextToken;
@@ -48,5 +48,11 @@ class AuthController extends Controller
         $data['user'] = $user;
 
         return $this->sendResponse($data, 'Login berhasil');
+    }
+
+    public function logout(Request $request)
+    {
+        $request->user()->currentAccessToken()->delete();
+        return $this->sendResponse([], 'Logout berhasil');
     }
 }

@@ -8,10 +8,17 @@ use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $products = Product::all();
-        return $this->sendResponse($products, 'Semua data produk berhasil diambil.');
+        $query = Product::query();
+        if ($request->has('search') && $request->search != '') {
+            $query->where('title', 'like', '%' . $request->search . '%');
+        }
+        if ($request->has('category') && $request->category != '') {
+            $query->where('category', $request->category);
+        }
+        $products = $query->get();
+        return $this->sendResponse($products, 'Daftar data produk berhasil diambil.');
     }
 
     public function store(Request $request)
@@ -26,7 +33,6 @@ class ProductController extends Controller
 
         $data = $request->all();
         $data['user_id'] = auth()->id(); 
-
         $product = Product::create($data);
         return $this->sendResponse($product, 'Produk berhasil ditambahkan.', 201);
     }
@@ -41,13 +47,11 @@ class ProductController extends Controller
         if ($product->user_id !== auth()->id()) {
             return $this->sendError('Akses ditolak! Anda hanya dapat mengubah produk Anda sendiri.', 403);
         }
-
         $request->validate([
             'title' => 'sometimes|required|string|max:255',
             'price' => 'sometimes|required|numeric',
             'category' => 'sometimes|required|string',
         ]);
-
         $product->update($request->all());
         return $this->sendResponse($product, 'Data produk berhasil diperbarui.');
     }
