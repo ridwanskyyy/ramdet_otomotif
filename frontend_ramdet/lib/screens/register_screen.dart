@@ -13,7 +13,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final nameController = TextEditingController();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
-  bool isChecked = false; // Status checkbox S&K
+  
+  // REVISI: Mengubah tipe data untuk kontrol Checkbox yang tepat
+  bool isChecked = false; 
+  
+  // REVISI: Menambahkan state kontrol visibilitas teks password
+  bool obscurePassword = true;
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +55,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Bergabunglah dengan komunitas otomotif performa tinggi kami.',
+              'Bergabunglah dengan komunitas otomotif performa tinggi kami!',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, color: Colors.grey),
             ),
@@ -53,7 +66,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(32),
-                border: Border.all(color: const Color(0xFFFF6B00).withOpacity(0.3)), // Border tipis warna oren
+                border: Border.all(color: const Color(0xFFFF6B00).withOpacity(0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -73,6 +86,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 8),
                   TextField(
                     controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
                       hintText: 'nama@email.com',
                       prefixIcon: Icon(Icons.mail_outline),
@@ -84,23 +98,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 8),
                   TextField(
                     controller: passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
+                    obscureText: obscurePassword,
+                    decoration: InputDecoration(
                       hintText: 'Min. 8 karakter',
-                      prefixIcon: Icon(Icons.lock_outline),
-                      suffixIcon: Icon(Icons.visibility_outlined),
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      // REVISI: Mengaktifkan fungsionalitas interaktif tombol mata password
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            obscurePassword = !obscurePassword;
+                          });
+                        },
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
                   
                   Row(
                     children: [
-                      Radio(
-                        value: true,
-                        groupValue: isChecked,
+                      // REVISI: Mengganti Radio menjadi Checkbox agar bisa dicentang dan dilepas secara dinamis
+                      Checkbox(
+                        value: isChecked,
                         activeColor: const Color(0xFFFF6B00),
                         onChanged: (value) {
-                          setState(() => isChecked = true);
+                          setState(() => isChecked = value ?? false);
                         },
                       ),
                       const Expanded(
@@ -125,16 +149,56 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ? const Center(child: CircularProgressIndicator())
                       : ElevatedButton(
                           onPressed: () async {
-                            if (!isChecked) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Harap setujui Syarat & Ketentuan')));
+                            final name = nameController.text.trim();
+                            final email = emailController.text.trim();
+                            final password = passwordController.text;
+
+                            // REVISI: Validasi kelengkapan data input awal
+                            if (name.isEmpty || email.isEmpty || password.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Semua kolom formulir wajib diisi.')),
+                              );
                               return;
                             }
-                            final success = await context.read<AuthProvider>().register(
-                              nameController.text, emailController.text, passwordController.text,
-                            );
-                            if (success && context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Registrasi Berhasil!')));
-                              Navigator.pop(context);
+
+                            // REVISI: Validasi format email sesuai Aturan Bisnis Otentikasi
+                            if (!email.contains('@') || !email.contains('.')) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Format email tidak valid (wajib mengandung @ dan domain).')),
+                              );
+                              return;
+                            }
+
+                            // REVISI: Validasi panjang password sesuai Aturan Bisnis Otentikasi
+                            if (password.length < 8) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Password minimal harus terdiri dari 8 karakter.')),
+                              );
+                              return;
+                            }
+
+                            if (!isChecked) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Harap setujui Syarat & Ketentuan terlebih dahulu.')),
+                              );
+                              return;
+                            }
+
+                            // Eksekusi registrasi dengan parameter yang sesuai kontrak API Postman
+                            final success = await context.read<AuthProvider>().register(name, email, password);
+                            
+                            if (context.mounted) {
+                              if (success) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Registrasi Berhasil!')),
+                                );
+                                Navigator.pop(context);
+                              } else {
+                                // REVISI: Memberikan umpan balik snackbar apabila gagal sesuai Aturan Antarmuka
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Registrasi gagal. Silakan periksa kembali data atau koneksi Anda.')),
+                                );
+                              }
                             }
                           },
                           child: Row(

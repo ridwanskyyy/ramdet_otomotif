@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'login_screen.dart';
-import 'profile_screen.dart'; 
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -18,35 +17,59 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkLoginStatus() async {
-    const storage = FlutterSecureStorage();
-    String? token = await storage.read(key: 'auth_token');
-
-    // Beri jeda sedikit agar efek splash screen terlihat elegan (opsional)
     await Future.delayed(const Duration(seconds: 2));
 
+    if (!mounted) return;
+
+    final authProvider = context.read<AuthProvider>();
+    
+    // Memanggil fungsi validasi token yang telah kita buat di AuthProvider
+    bool hasToken = await authProvider.checkTokenValidity(); 
+
     if (mounted) {
-      if (token != null) {
-        // Token ada, langsung masuk ke dalam aplikasi
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const ProfileScreen()),
-        );
+      if (hasToken) {
+        Navigator.pushReplacementNamed(context, '/profile');
       } else {
-        // Token tidak ada, arahkan ke halaman Login
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
-        );
+        Navigator.pushReplacementNamed(context, '/login');
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5),
       body: Center(
-        // Tampilkan logo aplikasi atau loading spinner saat mengecek sesi
-        child: CircularProgressIndicator(),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(Icons.directions_car, color: Color(0xFF9E4300), size: 40),
+                SizedBox(width: 12),
+                Text(
+                  'RAMDET',
+                  style: TextStyle(
+                    color: Color(0xFF9E4300),
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Katalog Velg & Modifikasi Motor',
+              style: TextStyle(color: Colors.grey, fontSize: 14),
+            ),
+            const SizedBox(height: 48),
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B00)),
+            ),
+          ],
+        ),
       ),
     );
   }

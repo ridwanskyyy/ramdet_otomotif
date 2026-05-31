@@ -3,13 +3,29 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'register_screen.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
+  State<LoginScreen> createState() => _LoginScreenState();}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  // REVISI: State lokal untuk mengontrol visibilitas password
+  bool _obscurePassword = true;
+
+  @override
+  void dispose() {
+    // REVISI: Wajib dispose untuk mencegah memory leak
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final emailController = TextEditingController();
-    final passwordController = TextEditingController();
+    // Mengamati perubahan status loading dari AuthProvider
     final authProvider = context.watch<AuthProvider>();
 
     return Scaffold(
@@ -20,12 +36,11 @@ class LoginScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 40),
-              // Logo Lingkaran
               Container(
                 width: 80,
                 height: 80,
                 decoration: const BoxDecoration(
-                  color: Color(0xFF9E4300), // Warna coklat gelap logo
+                  color: Color(0xFF9E4300),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.directions_car, color: Colors.white, size: 40),
@@ -47,7 +62,6 @@ class LoginScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
 
-              // Card Putih Form Login
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
@@ -63,7 +77,7 @@ class LoginScreen extends StatelessWidget {
                     const Text('Email', style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     TextField(
-                      controller: emailController,
+                      controller: _emailController,
                       decoration: const InputDecoration(
                         hintText: 'nama@email.com',
                         prefixIcon: Icon(Icons.mail_outline),
@@ -79,28 +93,52 @@ class LoginScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     TextField(
-                      controller: passwordController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      decoration: InputDecoration(
                         hintText: '••••••••',
-                        prefixIcon: Icon(Icons.lock_outline),
-                        suffixIcon: Icon(Icons.visibility_outlined),
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        // REVISI: Mengubah Suffix Icon menjadi IconButton agar bisa diklik untuk toggle password
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                        ),
                       ),
                     ),
                     const SizedBox(height: 32),
                     
+                    // Indikator loading sesuai dengan Dokumen Kebutuhan Sistem
                     authProvider.isLoading
                         ? const Center(child: CircularProgressIndicator())
                         : ElevatedButton(
                             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF9E4300)),
                             onPressed: () async {
+                              // REVISI: Validasi dasar sebelum menembak REST API Laravel
+                              if (_emailController.text.trim().isEmpty || _passwordController.text.trim().isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Email dan password tidak boleh kosong!')),
+                                );
+                                return;
+                              }
+
                               final success = await context.read<AuthProvider>().login(
-                                emailController.text, passwordController.text,
+                                _emailController.text.trim(), 
+                                _passwordController.text,
                               );
+                              
                               if (success && context.mounted) {
                                 Navigator.pushReplacementNamed(context, '/profile');
                               } else if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Login Gagal')));
+                                // Feedback Snackbar sesuai dengan Dokumen Kebutuhan Sistem
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Login Gagal! Email atau password Anda salah.')),
+                                );
                               }
                             },
                             child: Row(

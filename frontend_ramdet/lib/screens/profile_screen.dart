@@ -22,11 +22,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadProfile() async {
     final data = await context.read<AuthProvider>().getProfile();
     if (mounted) {
+      if (data == null) {
+        // REVISI: Sesuai aturan sistem, jika sesi habis/401, arahkan paksa ke halaman login
+        Navigator.pushReplacementNamed(context, '/login');
+        return;
+      }
       setState(() {
-        if (data != null) userData = data;
+        userData = data;
         isFetching = false;
       });
     }
+  }
+
+  // REVISI: Menambahkan dialog konfirmasi tindakan kritis sesuai Dokumen Kebutuhan Sistem
+  void _showLogoutConfirmationDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Konfirmasi Keluar'),
+          content: const Text('Apakah Anda yakin ingin keluar dari akun Anda?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(dialogContext); 
+                await context.read<AuthProvider>().logout();
+                if (context.mounted) {
+                  Navigator.pushReplacementNamed(context, '/login');
+                  // REVISI: Notifikasi respons snackbar sesuai standar UI/UX dokumen proyek
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Anda telah berhasil keluar.')),
+                  );
+                }
+              },
+              child: const Text('Keluar', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -49,13 +88,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
+      // Tampilan indikator pemuatan sesuai aturan ketersediaan informasi status di dokumen sistem
       body: isFetching 
         ? const Center(child: CircularProgressIndicator())
         : SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            // Card Profil Atas
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 32),
@@ -78,7 +117,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           shape: BoxShape.circle,
                           border: Border.all(color: const Color(0xFFFF6B00), width: 3),
                           image: const DecorationImage(
-                            image: NetworkImage('https://via.placeholder.com/150'), // Avatar placeholder
+                            image: NetworkImage('https://via.placeholder.com/150'),
                             fit: BoxFit.cover,
                           ),
                         ),
@@ -91,13 +130,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
+                  // REVISI: Pemetaan disesuaikan dengan objek 'data' dari response JSON Postman
                   Text(
-                    userData?['name'] ?? 'Budi Santoso', // Fallback teks statis
+                    userData?['data']?['name'] ?? 'Nama Tidak Ditemukan',
                     style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1A1A1A)),
                   ),
                   const SizedBox(height: 4),
+                  // REVISI: Pemetaan disesuaikan dengan objek 'data' dari response JSON Postman
                   Text(
-                    userData?['email'] ?? 'budi.santoso@email.com',
+                    userData?['data']?['email'] ?? 'Email Tidak Ditemukan',
                     style: const TextStyle(fontSize: 14, color: Colors.grey),
                   ),
                   const SizedBox(height: 16),
@@ -120,21 +161,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 24),
-
             // List Menu Navigasi
             _buildListTile(Icons.person_outline, 'Edit Profil', false, () {}),
             _buildListTile(Icons.directions_car_outlined, 'Kendaraan Saya', false, () {}),
             _buildListTile(Icons.location_on_outlined, 'Alamat Tersimpan', false, () {}),
             _buildListTile(Icons.notifications_none, 'Pengaturan Notifikasi', false, () {}),
-            
-            // Tombol Logout Terintegrasi
-            _buildListTile(Icons.logout, 'Keluar', true, () async {
-              await context.read<AuthProvider>().logout();
-              if (context.mounted) Navigator.pushReplacementNamed(context, '/login');
-            }),
+            _buildListTile(Icons.logout, 'Keluar', true, _showLogoutConfirmationDialog),
 
             const SizedBox(height: 24),
-            // Banner Diskon
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
@@ -162,7 +196,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Widget bantuan (Reusable) untuk list menu
   Widget _buildListTile(IconData icon, String title, bool isLogout, VoidCallback onTap) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/register_screen.dart'; 
 import 'screens/profile_screen.dart';
 
 void main() {
@@ -23,23 +24,21 @@ class MyApp extends StatelessWidget {
       title: 'Ramdet Otomotif',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        scaffoldBackgroundColor: const Color(0xFFFAFAFA), // Warna background utama
-        primaryColor: const Color(0xFFFF6B00), // Primary Orange
+        scaffoldBackgroundColor: const Color(0xFFFAFAFA),
+        primaryColor: const Color(0xFFFF6B00),
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFFFF6B00),
           primary: const Color(0xFFFF6B00),
         ),
-        // Gaya default untuk Text Field (Membulat & Abu-abu)
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: const Color(0xFFF5F5F5), // Secondary Gray
+          fillColor: const Color(0xFFF5F5F5),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(30.0),
             borderSide: BorderSide.none,
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
         ),
-        // Gaya default untuk tombol utama
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFFF6B00),
@@ -53,9 +52,12 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const SplashScreen(),
+      // REVISI: Mengganti properti home menjadi initialRoute demi standarisasi arsitektur
+      initialRoute: '/',
       routes: {
+        '/': (context) => const SplashScreen(), // REVISI: SplashScreen menjadi rute utama root (/)
         '/login': (context) => const LoginScreen(),
+        '/register': (context) => const RegisterScreen(), // REVISI: Mendaftarkan rute RegisterScreen
         '/profile': (context) => const ProfileScreen(),
       },
     );
