@@ -4,24 +4,23 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  # REVISI: Menaikkan batas minimal SDK Dart agar kompatibel dengan http v1.6.0 dan secure storage v10
-  sdk: '>=3.22.0 <4.0.0'
+  sdk: '>=3.10.8 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
 
   cupertino_icons: ^1.0.8
-  provider: ^6.1.5+1
-  flutter_secure_storage: ^10.3.1
-  http: ^1.6.0
+  provider: ^6.1.1
+  flutter_secure_storage: ^9.0.0
+  http: ^1.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
-  # Menggunakan lints yang sesuai dengan standar penulisan kode Flutter modern
-  flutter_lints: ^6.0.0
+  # Menyesuaikan lints yang aman untuk standar SDK Dart 3.10.x
+  flutter_lints: ^3.0.0
 
 flutter:
   uses-material-design: true
