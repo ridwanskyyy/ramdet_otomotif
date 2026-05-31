@@ -44,15 +44,26 @@ class ProductController extends Controller
 
     public function update(Request $request, Product $product)
     {
+        // Memastikan otorisasi kepemilikan sesuai dokumen kebutuhan sistem
         if ($product->user_id !== auth()->id()) {
             return $this->sendError('Akses ditolak! Anda hanya dapat mengubah produk Anda sendiri.', 403);
         }
+
+        // Validasi input yang masuk (menyertakan semua field yang boleh diubah)
         $request->validate([
             'title' => 'sometimes|required|string|max:255',
+            'description' => 'nullable|string',
             'price' => 'sometimes|required|numeric',
             'category' => 'sometimes|required|string',
+            'image_url' => 'nullable|string',
         ]);
-        $product->update($request->all());
+
+        // REVISI KEAMANAN: Membatasi Mass Assignment dengan request->only()
+        // Cara ini mengunci input sehingga parameter berbahaya seperti 'user_id' akan otomatis diabaikan
+        $safeData = $request->only(['title', 'description', 'price', 'category', 'image_url']);
+        
+        $product->update($safeData);
+        
         return $this->sendResponse($product, 'Data produk berhasil diperbarui.');
     }
 

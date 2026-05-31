@@ -55,4 +55,22 @@ class AuthController extends Controller
         $request->user()->currentAccessToken()->delete();
         return $this->sendResponse([], 'Logout berhasil');
     }
+
+    // Fitur Pembaruan Profil (Update Profile)
+    // Berfungsi untuk mengubah nama, nomor telepon, dan bio singkat pengguna
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+
+        $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'phone' => 'nullable|string|max:20',
+            'bio' => 'nullable|string',
+        ]);
+
+        // Proteksi Mass Assignment menggunakan request->only()
+        $user->update($request->only(['name', 'phone', 'bio']));
+
+        return $this->sendResponse($user, 'Profil berhasil diperbarui.');
+    }
 }
