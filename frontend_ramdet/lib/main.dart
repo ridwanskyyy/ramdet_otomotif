@@ -1,15 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
+import 'providers/product_provider.dart'; // TAMBAHAN: Import provider produk kamu
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart'; 
 import 'screens/profile_screen.dart';
+import 'screens/detail_product_screen.dart';
+import 'screens/edit_product_screen.dart';
+import 'screens/user_dashboard_screen.dart';
+import 'screens/product_overview_screen.dart'; // TAMBAHAN: Import halaman katalog yang akan dibuat
+import 'screens/add_product_screen.dart';
 
 void main() {
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => AuthProvider(),
+    // REVISI: Mengubah ke MultiProvider agar bisa menampung banyak provider sekaligus
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => AuthProvider()),
+        ChangeNotifierProvider(create: (context) => ProductProvider()), // TAMBAHAN: Daftarkan provider kamu di sini
+      ],
       child: const MyApp(),
     ),
   );
@@ -52,13 +62,18 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      // REVISI: Mengganti properti home menjadi initialRoute demi standarisasi arsitektur
-      initialRoute: '/',
+      initialRoute: '/products',
+      home: const ProductOverviewScreen(),
       routes: {
-        '/': (context) => const SplashScreen(), // REVISI: SplashScreen menjadi rute utama root (/)
+        // '/': (context) => const SplashScreen(),
         '/login': (context) => const LoginScreen(),
-        '/register': (context) => const RegisterScreen(), // REVISI: Mendaftarkan rute RegisterScreen
+        '/register': (context) => const RegisterScreen(),
         '/profile': (context) => const ProfileScreen(),
+        '/products': (context) => const UserDashboardScreen(),
+        '/admin-dashboard': (context) => const ProductOverviewScreen(), // TAMBAHAN: Daftarkan rute halaman katalog kamu
+        '/add-product': (context) => const AddProductScreen(),
+        '/product-detail': (context) => const ProductDetailScreen(),
+        '/edit-product': (context) => const EditProductScreen(), 
       },
     );
   }
