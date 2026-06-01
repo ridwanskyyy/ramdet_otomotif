@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import 'edit_profile_screen.dart';
+import 'kendaraan_saya_screen.dart';
+import 'alamat_tersimpan_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -23,7 +26,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final data = await context.read<AuthProvider>().getProfile();
     if (mounted) {
       if (data == null) {
-        // REVISI: Sesuai aturan sistem, jika sesi habis/401, arahkan paksa ke halaman login
         Navigator.pushReplacementNamed(context, '/login');
         return;
       }
@@ -34,7 +36,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // REVISI: Menambahkan dialog konfirmasi tindakan kritis sesuai Dokumen Kebutuhan Sistem
   void _showLogoutConfirmationDialog() {
     showDialog(
       context: context,
@@ -54,7 +55,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 await context.read<AuthProvider>().logout();
                 if (context.mounted) {
                   Navigator.pushReplacementNamed(context, '/login');
-                  // REVISI: Notifikasi respons snackbar sesuai standar UI/UX dokumen proyek
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Anda telah berhasil keluar.')),
                   );
@@ -88,7 +88,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
-      // Tampilan indikator pemuatan sesuai aturan ketersediaan informasi status di dokumen sistem
       body: isFetching 
         ? const Center(child: CircularProgressIndicator())
         : SingleChildScrollView(
@@ -130,13 +129,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  // REVISI: Pemetaan disesuaikan dengan objek 'data' dari response JSON Postman
                   Text(
                     userData?['data']?['name'] ?? 'Nama Tidak Ditemukan',
                     style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1A1A1A)),
                   ),
                   const SizedBox(height: 4),
-                  // REVISI: Pemetaan disesuaikan dengan objek 'data' dari response JSON Postman
                   Text(
                     userData?['data']?['email'] ?? 'Email Tidak Ditemukan',
                     style: const TextStyle(fontSize: 14, color: Colors.grey),
@@ -161,12 +158,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            // List Menu Navigasi
-            _buildListTile(Icons.person_outline, 'Edit Profil', false, () {}),
-            _buildListTile(Icons.directions_car_outlined, 'Kendaraan Saya', false, () {}),
-            _buildListTile(Icons.location_on_outlined, 'Alamat Tersimpan', false, () {}),
-            _buildListTile(Icons.notifications_none, 'Pengaturan Notifikasi', false, () {}),
-            _buildListTile(Icons.logout, 'Keluar', true, _showLogoutConfirmationDialog),
+            
+            // 2. REVISI: Mengganti ProfileMenuTile mentah dengan fungsi _buildListTile bawaan kodemu agar seragam dan tidak error
+            _buildListTile(
+              Icons.person_outline, 
+              'Edit Profil', 
+              false, 
+              () => Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfilScreen())),
+            ),
+            // _buildListTile(
+            //   Icons.directions_car_filled_outlined, 
+            //   'Kendaraan Saya', 
+            //   false, 
+            //   () => Navigator.push(context, MaterialPageRoute(builder: (context) => const KendaraanSayaScreen())),
+            // ),
+            // _buildListTile(
+            //   Icons.location_on_outlined, 
+            //   'Alamat Tersimpan', 
+            //   false, 
+            //   () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AlamatTersimpanScreen())),
+            // ),
+            _buildListTile(
+              Icons.logout, 
+              'Keluar', 
+              true, 
+              _showLogoutConfirmationDialog,
+            ),
 
             const SizedBox(height: 24),
             Container(
@@ -197,27 +214,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildListTile(IconData icon, String title, bool isLogout, VoidCallback onTap) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-      ),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: isLogout ? Colors.red.withOpacity(0.1) : const Color(0xFFF5F5F5),
-            shape: BoxShape.circle,
+        clipBehavior: Clip.antiAlias, // Menjaga efek ketukan tetap rapi di dalam lengkungan
+        child: ListTile(
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isLogout ? Colors.red.withOpacity(0.1) : const Color(0xFFF5F5F5),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: isLogout ? Colors.red : const Color(0xFF1A1A1A)),
           ),
-          child: Icon(icon, color: isLogout ? Colors.red : const Color(0xFF1A1A1A)),
+          title: Text(
+            title,
+            style: TextStyle(fontWeight: FontWeight.bold, color: isLogout ? Colors.red : const Color(0xFF1A1A1A)),
+          ),
+          trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+          onTap: onTap,
         ),
-        title: Text(
-          title,
-          style: TextStyle(fontWeight: FontWeight.bold, color: isLogout ? Colors.red : const Color(0xFF1A1A1A)),
-        ),
-        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-        onTap: onTap,
       ),
     );
   }

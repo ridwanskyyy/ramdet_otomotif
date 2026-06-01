@@ -5,7 +5,7 @@ import 'dart:convert';
 
 class AuthProvider with ChangeNotifier {
   final _storage = const FlutterSecureStorage();
-  final String baseUrl = 'http://127.0.0.1:8000/api'; // Jika running di Chrome / Web Browser
+  final String baseUrl = 'http://192.168.100.160:8000/api';// Jika running di Chrome / Web Browser
   // final String baseUrl = 'http://192.168.100.62:8000/api'; // Sesuaikan IP jika menggunakan HP fisik / Emulator
 
   bool _isLoading = false;
