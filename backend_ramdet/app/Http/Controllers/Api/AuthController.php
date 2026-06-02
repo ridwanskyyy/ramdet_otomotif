@@ -56,23 +56,28 @@ class AuthController extends Controller
         return $this->sendResponse([], 'Logout berhasil');
     }
 
-    // Fitur Pembaruan Profil (Update Profile)
-    // Diperbarui agar menggunakan nama kolom baru: phone_number dan alamat
+    // REVISI TOTAL: Menggabungkan logika proteksi role (Ridwan) dan pembaruan email (Dimas)
+    // Menggunakan kolom database yang sah: phone_number dan alamat
     public function updateProfile(Request $request)
     {
         $user = $request->user();
 
+        // 1. Validasi Input Data
+        // Ditambahkan pengecualian ID (,$user->id) agar user tidak mengunci emailnya sendiri saat update data lain
         $request->validate([
             'name' => 'sometimes|required|string|max:255',
-            'phone_number' => 'nullable|string|max:20', // Menggantikan phone
-            'alamat' => 'nullable|string',               // Menggantikan bio
+            'email' => 'sometimes|required|string|email|unique:users,email,'.$user->id,
+            'phone_number' => 'nullable|string|max:20', 
+            'alamat' => 'nullable|string',               
         ]);
 
-        // Proteksi Mass Assignment menggunakan request->only()
-        // Kita hanya mengizinkan perubahan nama, nomor telepon, dan alamat.
-        // Jangan pernah masukkan 'role' atau 'membership' di dalam array only() ini,
-        // supaya user biasa tidak bisa menembak API ini untuk mengubah role mereka sendiri menjadi admin.
-        $user->update($request->only(['name', 'phone_number', 'alamat']));
+        // 2. Proteksi Mass Assignment menggunakan request->only()
+        // Kita hanya mengizinkan perubahan nama, email, nomor telepon, dan alamat.
+        // Kolom 'role' atau 'membership' sengaja tidak dimasukkan agar tidak bisa ditembak oleh user biasa.
+        $updateData = $request->only(['name', 'email', 'phone_number', 'alamat']);
+
+        // 3. Eksekusi pembaruan ke database MySQL
+        $user->update($updateData);
 
         return $this->sendResponse($user, 'Profil berhasil diperbarui.');
     }

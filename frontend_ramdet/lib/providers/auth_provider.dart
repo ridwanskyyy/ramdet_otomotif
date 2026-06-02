@@ -5,7 +5,7 @@ import 'dart:convert';
 
 class AuthProvider with ChangeNotifier {
   final _storage = const FlutterSecureStorage();
-  final String baseUrl = 'http://172.20.10.6:8000/api';
+  final String baseUrl = 'http://192.168.7.242:8000/api';
 
   bool _isLoading = false;
   String? _token;
