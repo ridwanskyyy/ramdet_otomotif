@@ -16,8 +16,9 @@ class DatabaseSeeder extends Seeder
             'email' => 'admin@ramdet.com',
             'password' => Hash::make('admin123'),
             'phone_number' => '087785115589',
-            'alamat' => 'Bengkel Ramdet',
-            'membership' => 'VIP',
+            'address' => 'Bengkel Ramdet',
+            // REVISI: Mengubah ke nama kolom ENUM yang baru dan sah di database
+            'membership_status' => 'platinum', 
             'role' => 'admin', // Ini yang menentukan hak aksesnya
         ]);
     }

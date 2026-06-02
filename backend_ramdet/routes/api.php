@@ -21,6 +21,11 @@ Route::middleware('auth:sanctum')->group(function () {
         ], 200);
     });
     Route::put('/user', [AuthController::class, 'updateProfile']);
+    
+    // REVISI: Tambahkan baris POST murni ini agar bisa menerima Multipart FormData dari Flutter
+    Route::post('/user/update', [AuthController::class, 'updateProfile']); 
+    // Rute khusus mengubah password akun
+Route::post('/user/change-password', [AuthController::class, 'changePassword']);
     Route::post('/logout', [AuthController::class, 'logout']);
     
     // 2. Rute Favorit (Bisa diakses semua user yang login)
@@ -28,6 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/favorites/toggle', [FavoriteController::class, 'toggleFavorite']);
 
     // 3. Rute Produk untuk SEMUA USER (User & Admin) - Hanya Melihat List & Detail
+    // Proteksi hak akses admin dipindahkan ke dalam Controller demi keamanan
     Route::apiResource('products', ProductController::class)->only(['index', 'show'])->missing(function (Request $request) {
         return response()->json([
             'success' => false,
@@ -36,7 +42,6 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // 4. Rute Produk KHUSUS ADMIN - Tambah (Store), Ubah (Update), Hapus (Destroy)
-    // REVISI: Mengganti fungsi closure inline dengan class CheckAdmin yang sah
     Route::middleware(CheckAdmin::class)->group(function () {
         
         Route::apiResource('products', ProductController::class)->except(['index', 'show'])->missing(function (Request $request) {

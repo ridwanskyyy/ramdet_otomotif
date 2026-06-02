@@ -26,14 +26,13 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
     _profileFuture = Provider.of<AuthProvider>(context, listen: false).getProfile();
   }
 
-  @override
+ @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     
     return FutureBuilder<Map<String, dynamic>?>(
-      future: _profileFuture, // REVISI: Menggunakan variabel penampung Future dari initState
+      future: _profileFuture,
       builder: (context, snapshot) {
-        // Tampilkan loading spinner oranye khas Ramdet Otomotif saat menunggu respons API
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(
@@ -42,16 +41,21 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
           );
         }
 
-        // Ekstrak data user dan tentukan status admin secara otomatis secara global
         bool isAdmin = authProvider.isAdmin;
 
-        // List halaman yang disusun secara dinamis berdasarkan status hak akses asli
         final List<Widget> pages = [
           _buildCatalogPage(),
           _buildFavoritePage(),
           if (isAdmin) _buildAdminDashboardPage(), 
-          const ProfileScreen(), // Memanggil halaman profil asli milikmu
+          const ProfileScreen(),
         ];
+
+        // ==================== BARIS PENYELAMAT ====================
+        // Jika terjadi logout atau perubahan role yang membuat list halaman menyusut,
+        // paksa _currentIndex mundur agar tidak melebihi kapasitas index maksimum list pages.
+        if (_currentIndex >= pages.length) {
+          _currentIndex = pages.length - 1;
+        }
 
         return Scaffold(
           backgroundColor: const Color(0xFFF8F9FA),

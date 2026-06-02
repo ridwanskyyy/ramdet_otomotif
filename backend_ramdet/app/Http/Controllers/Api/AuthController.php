@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage; 
 
 class AuthController extends Controller
 {
@@ -15,18 +14,24 @@ class AuthController extends Controller
         $request->validate([
             'name' => 'required|string',
             'email' => 'required|string|email|unique:users',
-            'password' => 'required|string|min:8'
+            'password' => 'required|string|min:8',
+            'phone_number' => 'required|string|max:20', 
+            'address' => 'required|string'               
         ]);
 
+        // SEKARANG AMAN: Semua key array di bawah ini sudah punya kolom aslinya di DB & Model
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
-            'password' => Hash::make($request->password)
+            'password' => Hash::make($request->password),
+            'phone_number' => $request->phone_number, 
+            'address' => $request->address,           
+            'membership_status' => 'bronze' // Masuk ke enum kasta terendah secara otomatis
         ]);
 
         $data['access_token'] = $user->createToken('auth_token')->plainTextToken;
         $data['token_type'] = 'Bearer';
-        $data['user'] = $user; // Otomatis menyertakan data role default ('user') ke Flutter
+        $data['user'] = $user; 
 
         return $this->sendResponse($data, 'Register berhasil', 201);
     }
@@ -46,7 +51,7 @@ class AuthController extends Controller
 
         $data['access_token'] = $user->createToken('auth_token')->plainTextToken;
         $data['token_type'] = 'Bearer';
-        $data['user'] = $user; // Otomatis menyertakan data 'role' dan 'membership' dari database ke Flutter
+        $data['user'] = $user; 
 
         return $this->sendResponse($data, 'Login berhasil');
     }
@@ -57,41 +62,65 @@ class AuthController extends Controller
         return $this->sendResponse([], 'Logout berhasil');
     }
 
-    // REVISI: Mendukung penyimpanan foto profil 
     public function updateProfile(Request $request)
     {
         $user = $request->user();
 
-        // 1. Validasi Input Data
-        // Ditambahkan aturan validasi file 'image' (wajib berupa gambar, tipe jpeg/png/jpg, ukuran maksimal 2MB)
         $request->validate([
-            'name' => 'sometimes|required|string|max:255',
-            'email' => 'sometimes|required|string|email|unique:users,email,'.$user->id,
-            'phone_number' => 'nullable|string|max:20', 
-            'alamat' => 'nullable|string', 
-            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048', 
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|unique:users,email,'.$user->id,
+            'phone_number' => 'nullable|string|max:20',
+            'address' => 'nullable|string', 
+            'membership_status' => 'required|in:bronze,silver,gold,platinum',
+            'profile_photo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048'
         ]);
 
-        // 2. Proteksi Mass Assignment menggunakan request->only()
-        $updateData = $request->only(['name', 'email', 'phone_number', 'alamat']);
+        $updateData = [
+            'name' => $request->name,
+            'email' => $request->email,
+            'phone_number' => $request->phone_number, 
+            'address' => $request->address,           
+            'membership_status' => $request->membership_status,
+        ];
 
-        // 3. Logika Upload Foto Profil
-        if ($request->hasFile('image')) {
-            // Jika user sebelumnya sudah punya foto profil, hapus file lamanya dari folder storage
-            if ($user->image && Storage::disk('public')->exists($user->image)) {
-                Storage::disk('public')->delete($user->image);
-            }
-
-            // Simpan file gambar baru ke dalam folder 'storage/app/public/profiles'
-            $path = $request->file('image')->store('profiles', 'public');
+        if ($request->hasFile('profile_photo')) {
+            $file = $request->file('profile_photo');
+            $fileName = 'avatar_' . $user->id . '_' . time() . '.' . $file->getClientOriginalExtension();
+            $file->move(public_path('storage/avatars'), $fileName);
             
-            // Masukkan path file baru ke array data yang akan di-update
-            $updateData['image'] = $path;
+            $updateData['profile_photo_path'] = 'storage/avatars/' . $fileName;
         }
 
-        // 4. Eksekusi pembaruan data ke database
         $user->update($updateData);
 
         return $this->sendResponse($user, 'Profil berhasil diperbarui.');
     }
+    public function changePassword(Request $request)
+{
+    // 1. Validasi input dari Flutter
+    $request->validate([
+        'old_password' => 'required|string',
+        'new_password' => 'required|string|min:8',
+    ]);
+
+    $user = $request->user();
+
+    // 2. Cek apakah password lama cocok dengan yang ada di database MySQL
+    if (!Hash::check($request->old_password, $user->password)) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Password lama yang Anda masukkan salah.'
+        ], 401);
+    }
+
+    // 3. Update password baru (otomatis di-hash ulang oleh cast Laravel)
+    $user->update([
+        'password' => Hash::make($request->new_password)
+    ]);
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Password akun berhasil diperbarui.'
+    ], 200);
+}
 }

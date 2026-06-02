@@ -2,19 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:image_picker/image_picker.dart';
 
 class AuthProvider with ChangeNotifier {
   final _storage = const FlutterSecureStorage();
-  final String baseUrl = 'http://192.168.7.242:8000/api';
+  final String baseUrl = 'http://192.168.100.160:8000/api';
+
+  // Taruh fungsi ini di dalam class AuthProvider kamu, di bawah variabel baseUrl
+String getFullImageUrl(String? path) {
+  if (path == null || path.isEmpty) return 'https://via.placeholder.com/150';
+  
+  // Memotong kata '/api' dari baseUrl milikmu agar tersisa IP host utama 'http://10.0.2.2:8000'
+  final rootUrl = baseUrl.replaceAll('/api', '');
+  return '$rootUrl/$path';
+}
 
   bool _isLoading = false;
   String? _token;
-  String? _role; // TAMBAHAN: Menyimpan status role aktif ('user' atau 'admin')
+  String? _role; 
 
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _token != null;
   
-  // TAMBAHAN: Getter global untuk mengecek status role di halaman mana pun
   String? get role => _role;
   bool get isAdmin => _role == 'admin';
 
@@ -73,33 +82,96 @@ class AuthProvider with ChangeNotifier {
   }
 
   // PROSES REGISTER (Strict: Tanpa parameter role, backend wajib auto-set ke 'user')
-  Future<bool> register(String name, String email, String password) async {
-    _isLoading = true;
-    notifyListeners(); 
+  Future<bool> register({
+  required String name,
+  required String email,
+  required String password,
+  required String phone,
+  required String address,
+}) async {
+  _isLoading = true;
+  notifyListeners(); 
 
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/register'),
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        // Sesuai permintaan, form register murni kirim data user biasa.
-        body: jsonEncode({'name': name, 'email': email, 'password': password}),
-      ).timeout(const Duration(seconds: 10));
+  try {
+    final response = await http.post(
+      Uri.parse('$baseUrl/register'),
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'name': name,
+        'email': email,
+        'password': password,
+        'phone_number': phone,
+        'address': address
+      }),
+    );
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return true; 
-      }
-      return false;
-    } catch (e) {
-      debugPrint('Register Error: $e');
-      return false;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return true; 
     }
+    return false;
+  } catch (e) {
+    debugPrint('Register Error: $e');
+    return false;
+  } finally {
+    _isLoading = false;
+    notifyListeners();
   }
+}
+
+Future<bool> updateProfileMultipart({
+  required String name,
+  required String email,
+  required String phone,
+  required String address,
+  required String membershipStatus,
+  XFile? imageFile,
+}) async {
+  _isLoading = true;
+  notifyListeners();
+  _token = await _storage.read(key: 'auth_token');
+
+  try {
+    // REVISI: Tembak langsung ke endpoint POST murni /user/update
+    var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/user/update'));
+    
+    request.headers.addAll({
+      'Authorization': 'Bearer $_token',
+      'Accept': 'application/json',
+    });
+
+    // Masukkan data field teks langsung (Hapus baris request.fields['_method'] = 'PUT')
+    request.fields['name'] = name;
+    request.fields['email'] = email;
+    request.fields['phone_number'] = phone;
+    request.fields['address'] = address;
+    request.fields['membership_status'] = membershipStatus;
+
+    if (imageFile != null) {
+      request.files.add(await http.MultipartFile.fromPath(
+        'profile_photo',
+        imageFile.path,
+      ));
+    }
+
+    var streamedResponse = await request.send();
+    var response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200) {
+      return true;
+    }
+    debugPrint('Multipart Error Response: ${response.body}');
+    return false;
+  } catch (e) {
+    debugPrint('Multipart Exception: $e');
+    return false;
+  } finally {
+    _isLoading = false;
+    notifyListeners();
+  }
+}
 
   // AMBIL DATA PROFIL USER ACTIVE (Sekaligus Sync Ulang Role Terbaru)
   Future<Map<String, dynamic>?> getProfile() async {
@@ -198,4 +270,40 @@ class AuthProvider with ChangeNotifier {
     await _storage.delete(key: 'user_role'); 
     notifyListeners();
   }
+  Future<Map<String, dynamic>> changePassword({
+  required String oldPassword,
+  required String newPassword,
+}) async {
+  _isLoading = true;
+  notifyListeners();
+  _token = await _storage.read(key: 'auth_token');
+
+  try {
+    final response = await http.post(
+      Uri.parse('$baseUrl/user/change-password'),
+      headers: {
+        'Authorization': 'Bearer $_token',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'old_password': oldPassword,
+        'new_password': newPassword,
+      }),
+    );
+
+    final data = jsonDecode(response.body);
+
+    if (response.statusCode == 200) {
+      return {'success': true, 'message': data['message']};
+    }
+    return {'success': false, 'message': data['message'] ?? 'Gagal mengubah password.'};
+  } catch (e) {
+    debugPrint('Password Error: $e');
+    return {'success': false, 'message': 'Terjadi kesalahan koneksi ke server Laragon.'};
+  } finally {
+    _isLoading = false;
+    notifyListeners();
+  }
+}
 }

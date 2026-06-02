@@ -14,9 +14,9 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->string('password');
             $table->string('phone_number')->nullable();
-            $table->text('alamat')->nullable();       
-            $table->string('image')->nullable(); 
-            $table->string('membership')->nullable();
+            $table->text('address')->nullable();       
+            $table->string('profile_photo_path')->nullable();
+            $table->enum('membership_status', ['bronze', 'silver', 'gold', 'platinum'])->default('bronze');
             $table->string('role')->default('user'); 
             $table->rememberToken();
             $table->timestamps();

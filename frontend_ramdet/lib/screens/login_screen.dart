@@ -88,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: const [
                         Text('Password', style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text('Lupa Password?', style: TextStyle(color: Color(0xFF9E4300), fontSize: 12, fontWeight: FontWeight.bold)),
+                        
                       ],
                     ),
                     const SizedBox(height: 8),
