@@ -3,6 +3,7 @@ import 'package:frontend_ramdet/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import '../providers/product_provider.dart';
 import '../models/product.dart';
+import 'profile_screen.dart'; // Sudah terimport dengan aman
 
 class UserDashboardScreen extends StatefulWidget {
   const UserDashboardScreen({super.key});
@@ -17,7 +18,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Ambil state autentikasi global dari provider milik Anggota 2
+    // 1. Ambil state autentikasi global dari provider
     final authProvider = Provider.of<AuthProvider>(context);
     
     // 2. Gunakan FutureBuilder untuk mengambil data profil aktif dari backend Laravel
@@ -35,7 +36,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
 
         // 3. Ekstrak data user dan tentukan status admin secara otomatis
         final userData = snapshot.data;
-        bool isAdmin = false;
+        bool isAdmin = authProvider.isAdmin;
         
         if (userData != null) {
           // Mendukung mapping langsung atau bersarang sesuai response API Laravel
@@ -48,7 +49,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
           _buildCatalogPage(),
           _buildFavoritePage(),
           if (isAdmin) _buildAdminDashboardPage(), 
-          const Center(child: Text('Halaman Profile User')),
+          const ProfileScreen(), // REVISI: Mengganti placeholder teks lama dengan halaman profil asli
         ];
 
         return Scaffold(
@@ -593,6 +594,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                       provider.toggleFavorite(product.id!);
                     });
                   },
+                  borderRadius: BorderRadius.circular(20),
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: const BoxDecoration(

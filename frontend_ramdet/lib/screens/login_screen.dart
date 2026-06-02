@@ -118,29 +118,37 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? const Center(child: CircularProgressIndicator())
                         : ElevatedButton(
                             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF9E4300)),
-                            onPressed: () async {
-                              // REVISI: Validasi dasar sebelum menembak REST API Laravel
-                              if (_emailController.text.trim().isEmpty || _passwordController.text.trim().isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Email dan password tidak boleh kosong!')),
-                                );
-                                return;
-                              }
+                            onPressed: () async {final success = await context.read<AuthProvider>().login(
+    _emailController.text, // sesuaikan dengan nama controller email-mu
+    _passwordController.text, // sesuaikan dengan nama controller password-mu
+  );
 
-                              final success = await context.read<AuthProvider>().login(
-                                _emailController.text.trim(), 
-                                _passwordController.text,
-                              );
-                              
-                              if (success && context.mounted) {
-                                Navigator.pushReplacementNamed(context, '/profile');
-                              } else if (context.mounted) {
-                                // Feedback Snackbar sesuai dengan Dokumen Kebutuhan Sistem
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Login Gagal! Email atau password Anda salah.')),
-                                );
-                              }
-                            },
+  if (success) {
+    if (context.mounted) {
+      // 2. REVISI: Jika login sukses, lempar paksa ke Dashboard Utama ('/products')
+      // Menggunakan pushReplacementNamed agar user tidak bisa klik tombol "Back" kembali ke halaman login lagi
+      Navigator.pushReplacementNamed(context, '/products');
+
+      // Tampilkan feedback sukses premium
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Login Berhasil! Selamat datang di Ramdet Otomotif.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  } else {
+    if (context.mounted) {
+      // Tampilkan pesan error jika gagal
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Login Gagal! Periksa kembali email dan password Anda.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
+},
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: const [

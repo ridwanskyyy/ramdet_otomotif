@@ -161,11 +161,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             
             // 2. REVISI: Mengganti ProfileMenuTile mentah dengan fungsi _buildListTile bawaan kodemu agar seragam dan tidak error
             _buildListTile(
-              Icons.person_outline, 
-              'Edit Profil', 
-              false, 
-              () => Navigator.push(context, MaterialPageRoute(builder: (context) => const EditProfilScreen())),
-            ),
+  Icons.person_outline, 
+  'Edit Profil', 
+  false, 
+  () => Navigator.push(
+    context, 
+    MaterialPageRoute(
+      builder: (context) => EditProfilScreen(userData: userData), // <-- Kirim data user ke sini
+    ),
+  ),
+),
             // _buildListTile(
             //   Icons.directions_car_filled_outlined, 
             //   'Kendaraan Saya', 

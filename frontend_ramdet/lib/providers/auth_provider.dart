@@ -5,18 +5,23 @@ import 'dart:convert';
 
 class AuthProvider with ChangeNotifier {
   final _storage = const FlutterSecureStorage();
-  final String baseUrl = 'http://192.168.100.160:8000/api';// Jika running di Chrome / Web Browser
-  // final String baseUrl = 'http://192.168.100.62:8000/api'; // Sesuaikan IP jika menggunakan HP fisik / Emulator
+  final String baseUrl = 'http://172.20.10.6:8000/api';
 
   bool _isLoading = false;
   String? _token;
+  String? _role; // TAMBAHAN: Menyimpan status role aktif ('user' atau 'admin')
 
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _token != null;
+  
+  // TAMBAHAN: Getter global untuk mengecek status role di halaman mana pun
+  String? get role => _role;
+  bool get isAdmin => _role == 'admin';
 
-  // MENGECEK KETERSEDIAAN TOKEN DI STORAGE (UNTUK SPLASH SCREEN)
+  // MENGECEK KETERSEDIAAN TOKEN & ROLE DI STORAGE (UNTUK SPLASH SCREEN)
   Future<bool> checkTokenValidity() async {
     _token = await _storage.read(key: 'auth_token');
+    _role = await _storage.read(key: 'user_role'); // Ambil data role lama jika ada
     if (_token != null) {
       notifyListeners();
       return true;
@@ -24,7 +29,7 @@ class AuthProvider with ChangeNotifier {
     return false;
   }
 
-  // PROSES LOGIN
+  // PROSES LOGIN (Menangkap Token sekaligus Role dari Laravel)
   Future<bool> login(String email, String password) async {
     _isLoading = true;
     notifyListeners();
@@ -42,9 +47,19 @@ class AuthProvider with ChangeNotifier {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         
-        // Memetakan sesuai struktur response {"success": true, "data": {"access_token": "..."}}
+        // 1. Ambil token dan simpan
         _token = data['data']['access_token'];
         await _storage.write(key: 'auth_token', value: _token);
+        
+        // 2. Ekstrak Role langsung dari response login (jika backend mengirimkan data user)
+        // Mendukung multi-nesting response Laravel
+        final userObj = data['data']['user'] ?? data['user'];
+        if (userObj != null) {
+          _role = userObj['role'] ?? 'user';
+          await _storage.write(key: 'user_role', value: _role);
+        }
+        
+        notifyListeners();
         return true;
       }
       return false;
@@ -57,7 +72,7 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // PROSES REGISTER
+  // PROSES REGISTER (Strict: Tanpa parameter role, backend wajib auto-set ke 'user')
   Future<bool> register(String name, String email, String password) async {
     _isLoading = true;
     notifyListeners(); 
@@ -69,6 +84,7 @@ class AuthProvider with ChangeNotifier {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
+        // Sesuai permintaan, form register murni kirim data user biasa.
         body: jsonEncode({'name': name, 'email': email, 'password': password}),
       ).timeout(const Duration(seconds: 10));
 
@@ -85,7 +101,7 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // AMBIL DATA PROFIL USER Active
+  // AMBIL DATA PROFIL USER ACTIVE (Sekaligus Sync Ulang Role Terbaru)
   Future<Map<String, dynamic>?> getProfile() async {
     _token = await _storage.read(key: 'auth_token');
     if (_token == null) return null;
@@ -100,9 +116,15 @@ class AuthProvider with ChangeNotifier {
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final userData = jsonDecode(response.body);
+        
+        // Sinkronisasi data role terbaru dari database ke aplikasi lokal
+        _role = userData['role'] ?? userData['data']?['role'] ?? 'user';
+        await _storage.write(key: 'user_role', value: _role);
+        
+        notifyListeners();
+        return userData;
       } else if (response.statusCode == 401) {
-        // Jika token di server expired / tidak valid, langsung kick ke log out lokal
         await logout(); 
       }
       return null;
@@ -112,21 +134,31 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // UPDATE DATA PROFIL USER (RAW JSON - PUT)
-  Future<bool> updateProfile(String name, String phone, String bio) async {
+  // UPDATE DATA PROFIL USER
+  Future<bool> updateProfile({
+    required String name,
+    required String email,
+    required String phone,
+    required String address,
+  }) async {
     _isLoading = true;
     notifyListeners();
     _token = await _storage.read(key: 'auth_token');
 
     try {
       final response = await http.put( 
-        Uri.parse('$baseUrl/user'),
+        Uri.parse('$baseUrl/user'), 
         headers: {
-          'Authorization': 'Bearer $_token',
+          if (_token != null) 'Authorization': 'Bearer $_token',
           'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
-        body: jsonEncode({'name': name, 'phone': phone, 'bio': bio}),
+        body: jsonEncode({
+          'name': name,
+          'email': email,
+          'phone_number': phone,
+          'address': address,
+        }),
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -142,7 +174,7 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // PROSES LOGOUT
+  // PROSES LOGOUT (Bersihkan Token dan Role)
   Future<void> logout() async {
     _token = await _storage.read(key: 'auth_token');
     if (_token != null) {
@@ -155,13 +187,15 @@ class AuthProvider with ChangeNotifier {
           },
         ).timeout(const Duration(seconds: 5));
       } catch (e) {
-        debugPrint('Logout Backend Error (Tetap menghapus sesi lokal): $e');
+        debugPrint('Logout Backend Error: $e');
       }
     }
     
-    // Sesi lokal wajib dihapus bersih tanpa memedulikan kegagalan koneksi server
+    // Hapus total data sesi lokal
     _token = null;
+    _role = null;
     await _storage.delete(key: 'auth_token'); 
+    await _storage.delete(key: 'user_role'); 
     notifyListeners();
   }
 }
