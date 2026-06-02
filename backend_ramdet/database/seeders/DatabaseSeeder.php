@@ -10,16 +10,20 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // Membuat akun admin bawaan otomatis
+        // 1. Membuat akun admin bawaan otomatis
         User::create([
             'name' => 'Admin Ramdet',
             'email' => 'admin@ramdet.com',
             'password' => Hash::make('admin123'),
             'phone_number' => '087785115589',
             'address' => 'Bengkel Ramdet',
-            // REVISI: Mengubah ke nama kolom ENUM yang baru dan sah di database
             'membership_status' => 'platinum', 
             'role' => 'admin', // Ini yang menentukan hak aksesnya
+        ]);
+
+        // 2. Memanggil ProductSeeder untuk mengisi data dummy produk
+        $this->call([
+            ProductSeeder::class,
         ]);
     }
 }
