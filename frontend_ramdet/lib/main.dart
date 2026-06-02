@@ -61,9 +61,11 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      // REVISI: Ubah rute awal menjadi '/login' agar tidak langsung melompati proses login
-      initialRoute: '/login', 
+      initialRoute: '/', 
       routes: {
+        // REVISI: Pasang kembali rute utama ini agar tidak memicu hang/ANR
+        '/': (context) => const SplashScreen(), 
+        
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
         '/profile': (context) => const ProfileScreen(),

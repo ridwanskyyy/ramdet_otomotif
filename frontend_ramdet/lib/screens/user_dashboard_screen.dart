@@ -3,7 +3,7 @@ import 'package:frontend_ramdet/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import '../providers/product_provider.dart';
 import '../models/product.dart';
-import 'profile_screen.dart'; // Sudah terimport dengan aman
+import 'profile_screen.dart';
 
 class UserDashboardScreen extends StatefulWidget {
   const UserDashboardScreen({super.key});
@@ -15,15 +15,23 @@ class UserDashboardScreen extends StatefulWidget {
 class _UserDashboardScreenState extends State<UserDashboardScreen> {
   int _currentIndex = 0;
   String _selectedCategory = 'Semua';
+  
+  // TAMBAHAN OPTIMASI: Variabel untuk mengunci Future API agar tidak me-rebuild terus-menerus
+  late Future<Map<String, dynamic>?> _profileFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    // Di sini tempat kita menepati janji 'late' untuk mengisi nilainya
+    _profileFuture = Provider.of<AuthProvider>(context, listen: false).getProfile();
+  }
 
   @override
   Widget build(BuildContext context) {
-    // 1. Ambil state autentikasi global dari provider
     final authProvider = Provider.of<AuthProvider>(context);
     
-    // 2. Gunakan FutureBuilder untuk mengambil data profil aktif dari backend Laravel
     return FutureBuilder<Map<String, dynamic>?>(
-      future: authProvider.getProfile(),
+      future: _profileFuture, // REVISI: Menggunakan variabel penampung Future dari initState
       builder: (context, snapshot) {
         // Tampilkan loading spinner oranye khas Ramdet Otomotif saat menunggu respons API
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -34,22 +42,15 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
           );
         }
 
-        // 3. Ekstrak data user dan tentukan status admin secara otomatis
-        final userData = snapshot.data;
+        // Ekstrak data user dan tentukan status admin secara otomatis secara global
         bool isAdmin = authProvider.isAdmin;
-        
-        if (userData != null) {
-          // Mendukung mapping langsung atau bersarang sesuai response API Laravel
-          final role = userData['role'] ?? userData['data']?['role'] ?? 'user';
-          isAdmin = (role == 'admin');
-        }
 
         // List halaman yang disusun secara dinamis berdasarkan status hak akses asli
         final List<Widget> pages = [
           _buildCatalogPage(),
           _buildFavoritePage(),
           if (isAdmin) _buildAdminDashboardPage(), 
-          const ProfileScreen(), // REVISI: Mengganti placeholder teks lama dengan halaman profil asli
+          const ProfileScreen(), // Memanggil halaman profil asli milikmu
         ];
 
         return Scaffold(
@@ -86,7 +87,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                 ),
                 onPressed: () {
                   setState(() {
-                    _currentIndex = 1; // Lompat ke halaman favorit
+                    // Jika tab Favorit diklik melalui ikon atas, sesuaikan indeksnya dengan dinamis
+                    _currentIndex = 1; 
                   });
                 },
               ),
@@ -290,7 +292,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
           const Padding(
             padding: EdgeInsets.only(top: 16, left: 16, bottom: 16),
             child: Text(
-              'Produk Favorit Saya',
+              'Box Produk Favorit Saya',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
             ),
           ),

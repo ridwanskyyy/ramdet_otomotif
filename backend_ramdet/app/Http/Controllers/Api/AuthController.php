@@ -56,20 +56,37 @@ class AuthController extends Controller
         return $this->sendResponse([], 'Logout berhasil');
     }
 
-    // Fitur Pembaruan Profil (Update Profile)
-    // Berfungsi untuk mengubah nama, nomor telepon, dan bio singkat pengguna
+    // REVISI TOTAL: Fitur Pembaruan Profil (Update Profile)
+    // Sekarang sudah mendukung perubahan email, nomor telepon, dan alamat sesuai kiriman Flutter
     public function updateProfile(Request $request)
     {
         $user = $request->user();
 
+        // 1. Validasi Input Data
         $request->validate([
             'name' => 'sometimes|required|string|max:255',
-            'phone' => 'nullable|string|max:20',
-            'bio' => 'nullable|string',
+            // PENTING: Tambahkan pengecualian ID (,$user->id) agar tidak mengunci email diri sendiri saat di-save
+            'email' => 'sometimes|required|string|email|unique:users,email,'.$user->id,
+            'phone_number' => 'nullable|string|max:20',
+            'address' => 'nullable|string',
         ]);
 
-        // Proteksi Mass Assignment menggunakan request->only()
-        $user->update($request->only(['name', 'phone', 'bio']));
+        // 2. Siapkan data yang pasti aman di-update (Nama & Email pasti ada di DB)
+        $updateData = [
+            'name' => $request->name,
+            'email' => $request->email,
+        ];
+
+        // 3. PENCEGAHAN SQL ERROR: Hanya masukkan phone_number & address jika Ridwan sudah membuat kolomnya di DB
+        if ($request->has('phone_number')) {
+            $updateData['phone_number'] = $request->phone_number;
+        }
+        if ($request->has('address')) {
+            $updateData['address'] = $request->address;
+        }
+
+        // 4. Eksekusi pembaruan ke database MySQL
+        $user->update($updateData);
 
         return $this->sendResponse($user, 'Profil berhasil diperbarui.');
     }

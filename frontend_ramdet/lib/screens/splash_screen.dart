@@ -13,23 +13,25 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _checkLoginStatus();
+    _checkAuth();
   }
 
-  Future<void> _checkLoginStatus() async {
-    await Future.delayed(const Duration(seconds: 2));
-
+  void _checkAuth() async {
+    // Beri jeda 2-3 detik untuk menampilkan logo orisinil Ramdet Otomotif
+    await Future.delayed(const Duration(seconds: 3));
+    
     if (!mounted) return;
 
-    final authProvider = context.read<AuthProvider>();
-    
-    // Memanggil fungsi validasi token yang telah kita buat di AuthProvider
-    bool hasToken = await authProvider.checkTokenValidity(); 
+    // Ekstrak fungsi cek token valid dari AuthProvider yang kita buat kemarin
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    bool isValid = await authProvider.checkTokenValidity();
 
     if (mounted) {
-      if (hasToken) {
-        Navigator.pushReplacementNamed(context, '/profile');
+      if (isValid) {
+        // Jika token aktif ada, langsung bypass masuk ke Dashboard Utama
+        Navigator.pushReplacementNamed(context, '/products');
       } else {
+        // Jika tidak ada token (belum login/sudah logout), arahkan ke gerbang Login
         Navigator.pushReplacementNamed(context, '/login');
       }
     }
@@ -37,37 +39,26 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+    return const Scaffold(
+      backgroundColor: Colors.white,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(Icons.directions_car, color: Color(0xFF9E4300), size: 40),
-                SizedBox(width: 12),
-                Text(
-                  'RAMDET',
-                  style: TextStyle(
-                    color: Color(0xFF9E4300),
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
-                  ),
-                ),
-              ],
+            // Pasang Icon atau Logo Ramdet Otomotif andalan kamu di sini
+            Icon(Icons.directions_car_filled_outlined, size: 80, color: Color(0xFFFF6B00)),
+            SizedBox(height: 16),
+            Text(
+              'Ramdet Otomotif',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFFF6B00),
+                fontStyle: FontStyle.italic,
+              ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Katalog Velg & Modifikasi Motor',
-              style: TextStyle(color: Colors.grey, fontSize: 14),
-            ),
-            const SizedBox(height: 48),
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF6B00)),
-            ),
+            SizedBox(height: 10),
+            CircularProgressIndicator(color: Color(0xFFFF6B00)),
           ],
         ),
       ),
