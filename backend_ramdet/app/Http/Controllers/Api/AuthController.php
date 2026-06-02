@@ -25,7 +25,7 @@ class AuthController extends Controller
 
         $data['access_token'] = $user->createToken('auth_token')->plainTextToken;
         $data['token_type'] = 'Bearer';
-        $data['user'] = $user;
+        $data['user'] = $user; // Otomatis menyertakan data role default ('user') ke Flutter
 
         return $this->sendResponse($data, 'Register berhasil', 201);
     }
@@ -45,7 +45,7 @@ class AuthController extends Controller
 
         $data['access_token'] = $user->createToken('auth_token')->plainTextToken;
         $data['token_type'] = 'Bearer';
-        $data['user'] = $user;
+        $data['user'] = $user; // Otomatis menyertakan data 'role' dan 'membership' dari database ke Flutter
 
         return $this->sendResponse($data, 'Login berhasil');
     }
@@ -57,19 +57,22 @@ class AuthController extends Controller
     }
 
     // Fitur Pembaruan Profil (Update Profile)
-    // Berfungsi untuk mengubah nama, nomor telepon, dan bio singkat pengguna
+    // Diperbarui agar menggunakan nama kolom baru: phone_number dan alamat
     public function updateProfile(Request $request)
     {
         $user = $request->user();
 
         $request->validate([
             'name' => 'sometimes|required|string|max:255',
-            'phone' => 'nullable|string|max:20',
-            'bio' => 'nullable|string',
+            'phone_number' => 'nullable|string|max:20', // Menggantikan phone
+            'alamat' => 'nullable|string',               // Menggantikan bio
         ]);
 
         // Proteksi Mass Assignment menggunakan request->only()
-        $user->update($request->only(['name', 'phone', 'bio']));
+        // Kita hanya mengizinkan perubahan nama, nomor telepon, dan alamat.
+        // Jangan pernah masukkan 'role' atau 'membership' di dalam array only() ini,
+        // supaya user biasa tidak bisa menembak API ini untuk mengubah role mereka sendiri menjadi admin.
+        $user->update($request->only(['name', 'phone_number', 'alamat']));
 
         return $this->sendResponse($user, 'Profil berhasil diperbarui.');
     }

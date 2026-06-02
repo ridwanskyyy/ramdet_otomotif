@@ -15,8 +15,10 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'phone', 
-        'bio',   
+        'phone_number',
+        'alamat',
+        'membership',
+        'role',
     ];
 
     protected $hidden = [
@@ -25,7 +27,6 @@ class User extends Authenticatable
     ];
 
     protected $casts = [
-        'email_verified_at' => 'datetime',
-        'password' => 'hashed',
+        'password' => 'hashed', // Hanya menyisakan cast password bcrypt bawaan Laravel
     ];
 }
