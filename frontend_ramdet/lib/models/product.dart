@@ -8,6 +8,7 @@ class Product {
   final String? image;
   final String? category;
   final Uint8List? imageBytes;
+  bool isFavorite; // <-- 1. TAMBAHKAN PROPERTI BARU UNTUK FITUR FAVORIT
 
   Product({
     this.id,
@@ -17,6 +18,7 @@ class Product {
     this.image,
     this.category,
     this.imageBytes,
+    this.isFavorite = false, // <-- 2. BERI NILAI DEFAULT FALSE DI KONSTRUKTOR
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,8 @@ class Product {
       description: json['description'],
       price: json['price'] is String ? int.parse(json['price']) : json['price'],
       image: json['image'],
+      category: json['category'], // <-- TAMBAHKAN JUGAA AGAR KATEGORI MOBIL/MOTOR TERBACA DARI API
+      isFavorite: false, // <-- Otomatis bernilai false saat data pertama kali dimuat dari database
     );
   }
 
@@ -36,6 +40,7 @@ class Product {
       'description': description,
       'price': price,
       'image': image,
+      'category': category, // <-- Amankan passing category agar backend Ridwan bisa membaca jenisnya
     };
   }
 }

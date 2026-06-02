@@ -162,4 +162,13 @@ class ProductProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  // 5. FAVORITE: Mengubah Status Favorit Produk di Memori Lokal
+  void toggleFavorite(int id) {
+    final index = _products.indexWhere((prod) => prod.id == id);
+    if (index >= 0) {
+      _products[index].isFavorite = !_products[index].isFavorite;
+      notifyListeners(); // Memicu UI Dashboard & Halaman Favorit ter-render instan
+    }
+  }
 }

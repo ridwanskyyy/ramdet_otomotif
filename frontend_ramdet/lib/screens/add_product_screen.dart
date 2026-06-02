@@ -1,6 +1,6 @@
-import 'dart:typed_data'; // WAJIB UNTUK FLUTTER WEB
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart'; // IMPORT LIBRARY
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/product_provider.dart';
 
@@ -15,162 +15,239 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _priceController = TextEditingController();
-  final _descController = TextEditingController();
+  final _descriptionController = TextEditingController();
   
-  // Variabel untuk menyimpan data gambar di memori Web
-  Uint8List? _webImage; 
+  String _selectedCategory = 'Mobil'; // Nilai awal dropdown
+  Uint8List? _pickedImageBytes; // Menyimpan data gambar yang dipilih
 
-  // === TAMBAHAN STATE LOKAL UNTUK KATEGORI ===
-  String _selectedCategory = 'Mobil'; // Nilai default standar
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _priceController.dispose();
-    _descController.dispose();
-    super.dispose();
-  }
-
-  // Fungsi untuk membuka file picker laptop
+  // Fungsi Image Picker khusus Flutter Web
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
     
     if (image != null) {
-      var f = await image.readAsBytes();
+      final bytes = await image.readAsBytes();
       setState(() {
-        _webImage = f; // Simpan gambar ke dalam state berbentuk bytes
+        _pickedImageBytes = bytes;
       });
     }
   }
 
-  void _submitData() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    final name = _nameController.text;
-    final price = int.parse(_priceController.text);
-    final desc = _descController.text;
-
-    final productProvider = Provider.of<ProductProvider>(context, listen: false);
-    
-    // Kirim data ke provider (gambar dan variabel kategori ikut dikirimkan di sini)
-    final success = await productProvider.addProduct(
-      name, 
-      price, 
-      desc, 
-      _selectedCategory, // <--- Data kategori sukses dilemparkan ke provider
-      imageBytes: _webImage,
-    );
-
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Produk berhasil ditambahkan!')),
-      );
-      Navigator.of(context).pop();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gagal menambahkan produk.')),
-      );
-    }
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _priceController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = Provider.of<ProductProvider>(context).isLoading;
+    final productProvider = Provider.of<ProductProvider>(context);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA), // Latar belakang premium yang serasi
       appBar: AppBar(
-        title: const Text('Tambah Produk Otomotif'),
-        backgroundColor: const Color(0xFFFF6B00),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.of(context).pop(), // Kembali ke Dashboard Admin
+        ),
+        title: Text(
+          'Tambah Produk Baru',
+          style: TextStyle(
+            color: Colors.brown[800],
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Form(
-                key: _formKey,
-                child: ListView(
-                  children: [
-                    // === FORM PREVIEW & PICKER GAMBAR ===
-                    Center(
-                      child: GestureDetector(
-                        onTap: _pickImage,
-                        child: Container(
-                          height: 150,
-                          width: 250,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[200],
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFFF6B00), width: 1.5),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(20.0),
+          children: [
+            // 1. AREA UPLOAD GAMBAR CUSTOM (Elegan & Melengkung Sesuai Desain Baru)
+            InkWell(
+              onTap: _pickImage,
+              borderRadius: BorderRadius.circular(24),
+              child: Container(
+                height: 200,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFEFEF),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: _pickedImageBytes != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(22),
+                        child: Image.memory(_pickedImageBytes!, fit: BoxFit.cover),
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFFF6B00),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.camera_alt, color: Colors.white, size: 24),
                           ),
-                          child: _webImage != null
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Image.memory(_webImage!, fit: BoxFit.cover),
-                                )
-                              : const Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.add_a_photo, size: 40, color: Color(0xFFFF6B00)),
-                                    SizedBox(height: 8),
-                                    Text('Pilih Gambar Produk', style: TextStyle(color: Colors.grey)),
-                                  ],
-                                ),
-                        ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Pilih Gambar Komponen',
+                            style: TextStyle(color: Colors.black54, fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Format JPG, PNG (Max 2MB)',
+                            style: TextStyle(color: Colors.black38, fontSize: 11),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    TextFormField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(labelText: 'Nama Produk / Velg'),
-                      validator: (value) => value!.isEmpty ? 'Nama tidak boleh kosong' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    
-                    // === TAMBAHAN DROPDOWN KATEGORI ===
-                    DropdownButtonFormField<String>(
-                      value: _selectedCategory,
-                      decoration: const InputDecoration(labelText: 'Kategori Kendaraan'),
-                      items: ['Mobil', 'Motor'].map((String category) {
-                        return DropdownMenuItem<String>(
-                          value: category,
-                          child: Text(category),
-                        );
-                      }).toList(),
-                      onChanged: (newValue) {
-                        setState(() {
-                          _selectedCategory = newValue!; // Mengubah state pilihan kategori
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    
-                    TextFormField(
-                      controller: _priceController,
-                      decoration: const InputDecoration(labelText: 'Harga (Rp)'),
-                      keyboardType: TextInputType.number,
-                      validator: (value) => value!.isEmpty ? 'Harga tidak boleh kosong' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _descController,
-                      decoration: const InputDecoration(labelText: 'Deskripsi Produk'),
-                      maxLines: 3,
-                      validator: (value) => value!.isEmpty ? 'Deskripsi tidak boleh kosong' : null,
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFF6B00),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: _submitData,
-                      child: const Text('Simpan Produk', style: TextStyle(color: Colors.white)),
-                    ),
-                  ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // 2. INPUT NAMA PRODUK
+            _buildInputLabel('Nama Komponen / Velg'),
+            TextFormField(
+              controller: _nameController,
+              decoration: _buildInputDecoration('Masukkan nama suku cadang'),
+              style: const TextStyle(fontSize: 13),
+              validator: (val) => val!.isEmpty ? 'Nama tidak boleh kosong' : null,
+            ),
+            const SizedBox(height: 16),
+
+            // 3. DROPDOWN KATEGORI CUSTOM (Capsule Style)
+            _buildInputLabel('Kategori Kendaraan'),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFEFEF),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedCategory,
+                  isExpanded: true,
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.black54),
+                  style: const TextStyle(color: Colors.black87, fontSize: 13, fontWeight: FontWeight.bold),
+                  items: ['Mobil', 'Motor'].map((String category) {
+                    return DropdownMenuItem<String>(
+                      value: category,
+                      child: Text(category),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      _selectedCategory = newValue!;
+                    });
+                  },
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+
+            // 4. INPUT HARGA
+            _buildInputLabel('Harga Suku Cadang (Rp)'),
+            TextFormField(
+              controller: _priceController,
+              keyboardType: TextInputType.number,
+              decoration: _buildInputDecoration('Contoh: 7500000'),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              validator: (val) {
+                if (val!.isEmpty) return 'Harga tidak boleh kosong';
+                if (int.tryParse(val) == null) return 'Masukkan angka yang valid';
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // 5. INPUT DESKRIPSI (Multilines)
+            _buildInputLabel('Deskripsi Spesifikasi Produk'),
+            TextFormField(
+              controller: _descriptionController,
+              maxLines: 4,
+              decoration: _buildInputDecoration('Jelaskan kondisi, ukuran ring, atau keaslian spesifikasi komponen...'),
+              style: const TextStyle(fontSize: 13),
+              validator: (val) => val!.isEmpty ? 'Deskripsi tidak boleh kosong' : null,
+            ),
+            const SizedBox(height: 32),
+
+            // 6. TOMBOL SUBMIT KAPSUL ORANYE SEPERTI KATALOG
+            productProvider.isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF6B00)))
+                : ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFF6B00), // Oranye ikonik pilihanmu
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      elevation: 0,
+                    ),
+                    onPressed: () async {
+                      if (_formKey.currentState!.validate()) {
+                        final isSuccess = await productProvider.addProduct(
+                          _nameController.text,
+                          int.parse(_priceController.text),
+                          _descriptionController.text,
+                          _selectedCategory,
+                          imageBytes: _pickedImageBytes,
+                        );
+
+                        if (isSuccess && mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Produk baru sukses ditambahkan ke katalog!')),
+                          );
+                          Navigator.of(context).pop(); // Kembali ke dashboard admin dengan data segar
+                        }
+                      }
+                    },
+                    child: const Text(
+                      'Simpan Komponen Baru',
+                      style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper membuat Label Input minimalis
+  Widget _buildInputLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
+      ),
+    );
+  }
+
+  // Helper dekorasi kolom input kapsul abu-abu melengkung
+  InputDecoration _buildInputDecoration(String hint) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: Colors.black38, fontSize: 13),
+      filled: true,
+      fillColor: const Color(0xFFEFEFEF),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(20),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(20),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(20),
+        borderSide: const BorderSide(color: Color(0xFFFF6B00), width: 1),
+      ),
     );
   }
 }
