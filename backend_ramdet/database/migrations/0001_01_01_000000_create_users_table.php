@@ -14,7 +14,8 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->string('password');
             $table->string('phone_number')->nullable();
-            $table->text('alamat')->nullable();
+            $table->text('alamat')->nullable();       
+            $table->string('image')->nullable(); 
             $table->string('membership')->nullable();
             $table->string('role')->default('user'); 
             $table->rememberToken();

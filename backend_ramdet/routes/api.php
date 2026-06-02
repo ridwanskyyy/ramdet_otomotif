@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProductController; 
 use App\Http\Controllers\Api\FavoriteController; 
+use App\Http\Middleware\CheckAdmin; 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -35,16 +36,8 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // 4. Rute Produk KHUSUS ADMIN - Tambah (Store), Ubah (Update), Hapus (Destroy)
-    Route::middleware(function (Request $request, $next) {
-        if ($request->user() && $request->user()->role === 'admin') {
-            return $next($request);
-        }
-        
-        return response()->json([
-            'success' => false,
-            'message' => 'Akses ditolak! Menu ini hanya dapat diakses oleh Admin.'
-        ], 403); // Response 403 Forbidden
-    })->group(function () {
+    // REVISI: Mengganti fungsi closure inline dengan class CheckAdmin yang sah
+    Route::middleware(CheckAdmin::class)->group(function () {
         
         Route::apiResource('products', ProductController::class)->except(['index', 'show'])->missing(function (Request $request) {
             return response()->json([
