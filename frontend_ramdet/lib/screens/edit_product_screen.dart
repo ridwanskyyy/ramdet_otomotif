@@ -1,8 +1,8 @@
-import 'dart:typed_data'; // WAJIB UNTUK FLUTTER WEB
+import 'dart:typed_data'; 
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart'; // IMPORT UNTUK IMAGE PICKER
+import 'package:image_picker/image_picker.dart'; 
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart'; // IMPORT UNTUK MENGAKSES TOKEN
+import '../providers/auth_provider.dart'; 
 import '../models/product.dart';
 import '../providers/product_provider.dart';
 
@@ -22,7 +22,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
   late Product _product;
 
   String _selectedCategory = 'Mobil'; 
-  Uint8List? _newWebImage; // Penampung data gambar baru
+  Uint8List? _newWebImage; 
 
   @override
   void didChangeDependencies() {
@@ -41,7 +41,14 @@ class _EditProductScreenState extends State<EditProductScreen> {
       _nameController = TextEditingController(text: _product.name);
       _priceController = TextEditingController(text: _product.price.toString());
       _descController = TextEditingController(text: _product.description ?? '');
-      _selectedCategory = _product.category ?? 'Mobil'; 
+      
+      // REVISI 6: Normalkan konversi teks database agar Dropdown tidak crash akibat sensitivitas huruf
+      if (_product.category != null) {
+        _selectedCategory = _product.category!.toLowerCase() == 'motor' ? 'Motor' : 'Mobil';
+      } else {
+        _selectedCategory = 'Mobil';
+      }
+      
       _isInit = false;
     }
   }
@@ -54,9 +61,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
     super.dispose();
   }
 
-  // Fungsi interaktif pembuka file explorer laptop
   Future<void> _pickImage() async {
-    print("Membuka File Picker Laptop..."); // Indikator debug di terminal VS Code
     try {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(source: ImageSource.gallery);
@@ -64,14 +69,11 @@ class _EditProductScreenState extends State<EditProductScreen> {
       if (image != null) {
         var bytes = await image.readAsBytes();
         setState(() {
-          _newWebImage = bytes; // Sukses menimpa memori gambar di frontend
+          _newWebImage = bytes; 
         });
-        print("Gambar baru sukses dimuat ke memori!"); 
-      } else {
-        print("User membatalkan pemilihan gambar.");
       }
     } catch (e) {
-      print("Error saat memilih gambar: $e");
+      debugPrint("Error saat memilih gambar: $e");
     }
   }
 
@@ -79,10 +81,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final productProvider = Provider.of<ProductProvider>(context, listen: false);
-    
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final String adminToken = authProvider.token ?? '';
-    // PASTIKAN line "imageBytes" di bawah ini membaca variabel _newWebImage!
+    
     final success = await productProvider.updateProduct(
       adminToken,
       _product.id!,
@@ -90,24 +91,29 @@ class _EditProductScreenState extends State<EditProductScreen> {
       int.parse(_priceController.text),
       _descController.text,
       _selectedCategory,
-      imageBytes: _newWebImage, // <--- KRUSIAL: Harus mengoper gambar baru!
+      imageBytes: _newWebImage, 
     );
 
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Produk berhasil diperbarui!')),
-      );
-      Navigator.of(context).pop(); 
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Produk berhasil diperbarui!')),
+        );
+        Navigator.of(context).pop(); 
+      }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gagal memperbarui produk.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal memperbarui produk.')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isLoading = Provider.of<ProductProvider>(context).isLoading;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     return Scaffold(
       appBar: AppBar(
@@ -123,7 +129,6 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 key: _formKey,
                 child: ListView(
                   children: [
-                    // === REVISI STRUKTUR AREA PREVIEW GAMBAR ===
                     Center(
                       child: Stack(
                         alignment: Alignment.bottomRight,
@@ -136,6 +141,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: const Color(0xFFFF6B00), width: 2),
                             ),
+                            // REVISI 7: Tambahkan opsi NetworkImage untuk pratinjau gambar lama dari server
                             child: _newWebImage != null
                                 ? ClipRRect(
                                     borderRadius: BorderRadius.circular(10),
@@ -146,15 +152,19 @@ class _EditProductScreenState extends State<EditProductScreen> {
                                         borderRadius: BorderRadius.circular(10),
                                         child: Image.memory(_product.imageBytes!, fit: BoxFit.cover),
                                       )
-                                    : const Icon(Icons.directions_car, size: 50, color: Color(0xFFFF6B00)),
+                                    : (_product.image != null && _product.image!.isNotEmpty)
+                                        ? ClipRRect(
+                                            borderRadius: BorderRadius.circular(10),
+                                            child: Image.network(authProvider.getFullImageUrl(_product.image), fit: BoxFit.cover),
+                                          )
+                                        : const Icon(Icons.directions_car, size: 50, color: Color(0xFFFF6B00)),
                           ),
-                          // Tombol pemicu absolut berbentuk lingkaran oranye di pojok kanan bawah gambar
                           Padding(
                             padding: const EdgeInsets.all(8.0),
                             child: FloatingActionButton.small(
                               heroTag: "btn_pick_edit",
                               backgroundColor: const Color(0xFFFF6B00),
-                              onPressed: _pickImage, // Mengunci pemicu langsung ke fungsi picker
+                              onPressed: _pickImage, 
                               child: const Icon(Icons.camera_alt, color: Colors.white, size: 18),
                             ),
                           ),

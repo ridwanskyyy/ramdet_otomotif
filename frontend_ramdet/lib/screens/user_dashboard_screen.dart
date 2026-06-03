@@ -15,18 +15,22 @@ class UserDashboardScreen extends StatefulWidget {
 class _UserDashboardScreenState extends State<UserDashboardScreen> {
   int _currentIndex = 0;
   String _selectedCategory = 'Semua';
-  
-  // TAMBAHAN OPTIMASI: Variabel untuk mengunci Future API agar tidak me-rebuild terus-menerus
   late Future<Map<String, dynamic>?> _profileFuture;
 
   @override
   void initState() {
     super.initState();
-    // Di sini tempat kita menepati janji 'late' untuk mengisi nilainya
     _profileFuture = Provider.of<AuthProvider>(context, listen: false).getProfile();
+    
+    // Otomatis tarik katalog data riil dari MySQL Laragon sejak pertama kali aplikasi dibuka
+    Future.delayed(Duration.zero, () {
+      if (mounted) {
+        Provider.of<ProductProvider>(context, listen: false).fetchProducts();
+      }
+    });
   }
 
- @override
+  @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     
@@ -50,9 +54,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
           const ProfileScreen(),
         ];
 
-        // ==================== BARIS PENYELAMAT ====================
-        // Jika terjadi logout atau perubahan role yang membuat list halaman menyusut,
-        // paksa _currentIndex mundur agar tidak melebihi kapasitas index maksimum list pages.
         if (_currentIndex >= pages.length) {
           _currentIndex = pages.length - 1;
         }
@@ -91,7 +92,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                 ),
                 onPressed: () {
                   setState(() {
-                    // Jika tab Favorit diklik melalui ikon atas, sesuaikan indeksnya dengan dinamis
                     _currentIndex = 1; 
                   });
                 },
@@ -121,7 +121,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                 icon: Icon(Icons.favorite_border_rounded),
                 label: 'Favorit',
               ),
-              // MENU DASHBOARD HANYA DIMASUKKAN JIKA USER ADALAH ADMIN
               if (isAdmin)
                 const BottomNavigationBarItem(
                   icon: Icon(Icons.dashboard_customize_outlined),
@@ -138,12 +137,13 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
     );
   }
 
-  // === HALAMAN UTAMA: KATALOG ===
+  // === HALAMAN UTAMA: KATALOG USER ===
   Widget _buildCatalogPage() {
     final productProvider = Provider.of<ProductProvider>(context);
+    
     final products = _selectedCategory == 'Semua'
         ? productProvider.products
-        : productProvider.products.where((p) => p.category == _selectedCategory).toList();
+        : productProvider.products.where((p) => p.category?.toLowerCase() == _selectedCategory.toLowerCase()).toList();
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
@@ -212,19 +212,23 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
           }).toList(),
         ),
         const SizedBox(height: 20),
-        products.isEmpty
+        
+        productProvider.isLoading
             ? const Padding(
-                padding: EdgeInsets.all(32.0),
-                child: Center(child: Text('Belum ada produk di kategori ini.')),
+                padding: EdgeInsets.all(40.0),
+                child: Center(child: CircularProgressIndicator(color: Color(0xFFFF6B00))),
               )
-            : ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: products.length,
-                itemBuilder: (context, index) {
-                  return _buildProductCard(products[index], productProvider);
-                },
-              ),
+            : products.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: Center(child: Text('Belum ada produk di kategori ini.', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500))),
+                  )
+                : Column(
+                    children: products.map((product) {
+                      return _buildProductCard(product, productProvider);
+                    }).toList(),
+                  ),
+                  
         const SizedBox(height: 16),
         Container(
           width: double.infinity,
@@ -325,6 +329,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
   // === HALAMAN: DASHBOARD MANAGEMENT ADMIN ===
   Widget _buildAdminDashboardPage() {
     final productProvider = Provider.of<ProductProvider>(context);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final products = productProvider.products;
 
     final int totalProducts = products.length;
@@ -434,12 +439,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                   padding: EdgeInsets.all(32.0),
                   child: Center(child: Text('Tidak ada data produk di katalog.')),
                 )
-              : ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: products.length,
-                  itemBuilder: (context, index) {
-                    final product = products[index];
+              : Column(
+                  children: products.map((product) {
                     return Container(
                       margin: const EdgeInsets.only(bottom: 14),
                       padding: const EdgeInsets.all(12),
@@ -457,12 +458,36 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                               color: Color(0xFFF1F3F5),
                               shape: BoxShape.circle,
                             ),
+                            // REVISI INTEGRASI: Image.network super aman khusus dashboard admin
                             child: product.imageBytes != null
                                 ? ClipRRect(
                                     borderRadius: BorderRadius.circular(32),
                                     child: Image.memory(product.imageBytes!, fit: BoxFit.cover),
                                   )
-                                : Icon(Icons.image, color: Colors.black.withOpacity(0.24), size: 28),
+                                : (product.image != null && product.image!.isNotEmpty)
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(32),
+                                        child: Image.network(
+                                          authProvider.getFullImageUrl(product.image),
+                                          fit: BoxFit.cover,
+                                          loadingBuilder: (context, child, progress) {
+                                            if (progress == null) return child;
+                                            return const Center(child: SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF6B00))));
+                                          },
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return Icon(
+                                              product.category?.toLowerCase() == 'motor' ? Icons.motorcycle_rounded : Icons.directions_car_filled_outlined,
+                                              color: const Color(0xFFFF6B00),
+                                              size: 22,
+                                            );
+                                          },
+                                        ),
+                                      )
+                                    : Icon(
+                                        product.category?.toLowerCase() == 'motor' ? Icons.motorcycle_rounded : Icons.directions_car_filled_outlined,
+                                        color: const Color(0xFFFF6B00),
+                                        size: 22,
+                                      ),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
@@ -477,7 +502,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Stock: 45 units • Cat: ${product.category ?? 'Umum'}',
+                                  'Stock: Available • Cat: ${(product.category ?? 'Umum').toUpperCase()}',
                                   style: const TextStyle(color: Colors.black45, fontSize: 11),
                                 ),
                                 const SizedBox(height: 4),
@@ -509,16 +534,10 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                                 backgroundColor: Colors.red[50],
                                 child: IconButton(
                                   icon: const Icon(Icons.delete_outline, size: 14, color: Colors.red),
-                                  onPressed: () async { // <-- TAMBAHKAN KATA 'async' DI SINI
-                                    // Ambil token dari AuthProvider
-                                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-  
-                                    // Ambil nama variabel token aslinya (misal: authToken atau token)
+                                  onPressed: () async { 
                                     final String adminToken = authProvider.token ?? ''; 
-
-                                    // Jalankan fungsi dengan aman
                                     await productProvider.deleteProduct(adminToken, product.id!);
-},
+                                  },
                                 ),
                               ),
                             ],
@@ -526,14 +545,13 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                         ],
                       ),
                     );
-                  },
+                  }).toList(),
                 ),
         ],
       ),
     );
   }
 
-  // WIDGET REUSABLE: CARD RINGKASAN STATS
   Widget _buildStatCard(String title, String value, String badge, Color badgeColor, {bool isAlert = false}) {
     return Container(
       width: double.infinity,
@@ -570,8 +588,10 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
     );
   }
 
-  // === REUSABLE WIDGET: KARTU PRODUK ===
+  // === REUSABLE WIDGET: KARTU PRODUK KATALOG USER ===
   Widget _buildProductCard(Product product, ProductProvider provider) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
@@ -584,6 +604,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
         children: [
           Stack(
             children: [
+              // REVISI INTEGRASI: Image.network super aman khusus halaman katalog user utama
               Container(
                 height: 240,
                 width: double.infinity,
@@ -596,7 +617,30 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                         child: Image.memory(product.imageBytes!, fit: BoxFit.cover),
                       )
-                    : Icon(Icons.directions_car_filled_outlined, size: 64, color: Colors.black.withOpacity(0.24)),
+                    : (product.image != null && product.image!.isNotEmpty)
+                        ? ClipRRect(
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                            child: Image.network(
+                              authProvider.getFullImageUrl(product.image),
+                              fit: BoxFit.cover,
+                              loadingBuilder: (context, child, progress) {
+                                if (progress == null) return child;
+                                return const Center(child: CircularProgressIndicator(color: Color(0xFFFF6B00)));
+                              },
+                              errorBuilder: (context, error, stackTrace) {
+                                return Icon(
+                                  product.category?.toLowerCase() == 'motor' ? Icons.motorcycle_rounded : Icons.directions_car_filled_outlined,
+                                  size: 80,
+                                  color: Colors.black.withOpacity(0.24),
+                                );
+                              },
+                            ),
+                          )
+                        : Icon(
+                            product.category?.toLowerCase() == 'motor' ? Icons.motorcycle_rounded : Icons.directions_car_filled_outlined,
+                            size: 80,
+                            color: Colors.black.withOpacity(0.24),
+                          ),
               ),
               Positioned(
                 top: 12,
@@ -643,9 +687,9 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Tersedia',
-                      style: TextStyle(color: Colors.black54, fontSize: 11, fontStyle: FontStyle.italic),
+                    Text(
+                      'Kategori: ${(product.category ?? 'Umum').toUpperCase()}',
+                      style: const TextStyle(color: Colors.black54, fontSize: 11, fontStyle: FontStyle.italic),
                     ),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(

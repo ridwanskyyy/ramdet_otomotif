@@ -1,4 +1,4 @@
-import 'dart:typed_data'; // <-- TAMBAHKAN BARIS INI DI PALING ATAS FILE
+import 'dart:typed_data';
 
 class Product {
   final int? id;
@@ -8,7 +8,7 @@ class Product {
   final String? image;
   final String? category;
   final Uint8List? imageBytes;
-  bool isFavorite; // <-- 1. TAMBAHKAN PROPERTI BARU UNTUK FITUR FAVORIT
+  bool isFavorite; 
 
   Product({
     this.id,
@@ -18,18 +18,30 @@ class Product {
     this.image,
     this.category,
     this.imageBytes,
-    this.isFavorite = false, // <-- 2. BERI NILAI DEFAULT FALSE DI KONSTRUKTOR
+    this.isFavorite = false, 
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
+    // PROTEKSI SAKTI: Mengonversi nilai decimal "1650000.00" Laravel menjadi Integer murni di Flutter
+    int parsedPrice = 0;
+    if (json['price'] != null) {
+      if (json['price'] is int) {
+        parsedPrice = json['price'];
+      } else if (json['price'] is double) {
+        parsedPrice = (json['price'] as double).toInt();
+      } else if (json['price'] is String) {
+        parsedPrice = double.parse(json['price']).toInt();
+      }
+    }
+
     return Product(
-      id: json['id'],
-      name: json['name'],
+      id: json['id'] is String ? int.parse(json['id']) : json['id'] as int?,
+      name: json['name'] ?? '',
       description: json['description'],
-      price: json['price'] is String ? int.parse(json['price']) : json['price'],
+      price: parsedPrice, 
       image: json['image'],
-      category: json['category'], // <-- TAMBAHKAN JUGAA AGAR KATEGORI MOBIL/MOTOR TERBACA DARI API
-      isFavorite: false, // <-- Otomatis bernilai false saat data pertama kali dimuat dari database
+      category: json['category'], 
+      isFavorite: false, 
     );
   }
 
@@ -40,7 +52,7 @@ class Product {
       'description': description,
       'price': price,
       'image': image,
-      'category': category, // <-- Amankan passing category agar backend Ridwan bisa membaca jenisnya
+      'category': category, 
     };
   }
 }
