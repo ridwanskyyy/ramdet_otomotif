@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:frontend_ramdet/providers/auth_provider.dart'; // REVISI: Import AuthProvider untuk ambil URL penuh server
 import '../providers/product_provider.dart';
 import '../models/product.dart';
 
@@ -18,6 +19,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     
     // 2. Ambil data asli dari Provider agar status isFavorite-nya sinkron secara real-time
     final productProvider = Provider.of<ProductProvider>(context);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false); // AMBIL AUTH PROVIDER
+    
     final product = productProvider.products.firstWhere(
       (prod) => prod.id == routeProduct.id,
       orElse: () => routeProduct,
@@ -47,7 +50,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           Expanded(
             child: ListView(
               children: [
-                // AREA DISPLAY GAMBAR PRODUK
+                // REVISI: AREA DISPLAY GAMBAR PRODUK ANTI-FREEZE & DUKUNG NETWORK IMAGE
                 Container(
                   width: double.infinity,
                   height: 300,
@@ -56,7 +59,35 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                   child: product.imageBytes != null
                       ? Image.memory(product.imageBytes!, fit: BoxFit.cover)
-                      : Icon(Icons.directions_car_filled_outlined, size: 80, color: Colors.black.withOpacity(0.24)),
+                      : (product.image != null && product.image!.isNotEmpty)
+                          ? Image.network(
+                              authProvider.getFullImageUrl(product.image),
+                              fit: BoxFit.cover,
+                              // LOADING BUILDER: Indikator saat gambar sedang ditarik dari laptop
+                              loadingBuilder: (context, child, progress) {
+                                if (progress == null) return child;
+                                return const Center(
+                                  child: CircularProgressIndicator(color: Color(0xFFFF6B00)),
+                                );
+                              },
+                              // ERROR BUILDER: Sabuk pengaman mutlak dari crash engine grafis LDPlayer
+                              errorBuilder: (context, error, stackTrace) {
+                                return Icon(
+                                  product.category?.toLowerCase() == 'motor' 
+                                      ? Icons.motorcycle_rounded 
+                                      : Icons.directions_car_filled_outlined, 
+                                  size: 80, 
+                                  color: Colors.black.withOpacity(0.24),
+                                );
+                              },
+                            )
+                          : Icon(
+                              product.category?.toLowerCase() == 'motor' 
+                                  ? Icons.motorcycle_rounded 
+                                  : Icons.directions_car_filled_outlined, 
+                              size: 80, 
+                              color: Colors.black.withOpacity(0.24),
+                            ),
                 ),
 
                 // BLOK INFORMASI UTAMA PRODUK
@@ -99,7 +130,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
-                              product.category ?? 'Umum',
+                              (product.category ?? 'Umum').toUpperCase(),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 11,
@@ -173,7 +204,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
 
           // =========================================================================
-          // REVISI: BOTTOM ACTION BAR - FULL TOMBOL FAVORIT (CHAT DIHAPUS)
+          // BOTTOM ACTION BAR - FULL TOMBOL FAVORIT (CHAT DIHAPUS)
           // =========================================================================
           Container(
             padding: const EdgeInsets.all(16.0),
@@ -188,10 +219,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ],
             ),
             child: SizedBox(
-              width: double.infinity, // Memastikan tombol melebar penuh memenuhi layar
+              width: double.infinity, 
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  // Warna tombol berubah mengikuti status: Oranye jika belum difavoritkan, Abu-abu gelap jika sudah
                   backgroundColor: product.isFavorite ? const Color(0xFF2C3033) : const Color(0xFFFF6B00),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                   padding: const EdgeInsets.symmetric(vertical: 14),
@@ -202,7 +232,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     productProvider.toggleFavorite(product.id!);
                   });
                   
-                  // Opsional: Memberi feedback snackbar kecil ke pengguna
                   ScaffoldMessenger.of(context).clearSnackBars();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -215,13 +244,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                   );
                 },
-                // Ikon hati dinamis (isi penuh / garis luar saja)
                 icon: Icon(
                   product.isFavorite ? Icons.favorite : Icons.favorite_border,
                   color: Colors.white,
                   size: 18,
                 ),
-                // Label teks dinamis sesuai status produk
                 label: Text(
                   product.isFavorite ? 'Hapus dari Favorit Saya' : 'Masukkan ke Favorit Saya',
                   style: const TextStyle(

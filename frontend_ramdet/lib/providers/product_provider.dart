@@ -1,108 +1,112 @@
 import 'dart:convert';
-import 'dart:typed_data'; // WAJIB DIIMPORT agar Uint8List dikenali
+import 'dart:typed_data'; 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // Pastikan package ini aktif
 import '../models/product.dart';
 
 class ProductProvider with ChangeNotifier {
   List<Product> _products = [];
   bool _isLoading = false;
+  final _storage = const FlutterSecureStorage();
 
   List<Product> get products => _products;
   bool get isLoading => _isLoading;
 
-  // Sesuaikan URL ini dengan path project Laragon lokalmu
-  final String baseUrl = 'http://127.0.0.1:8001/api/products';
+  // REVISI: Mengamankan alamat IP jembatan emulator LDPlayer ke port 8001 Laragon kalian
+  final String baseUrl = 'http://192.168.100.62:8001/api/products';
 
-  // 1. READ: Ambil data katalog dari Laravel (Tanpa token karena rute index bersifat publik)
+  // 1. READ: Ambil data katalog dari Laravel
   Future<void> fetchProducts() async {
     _isLoading = true;
     notifyListeners();
 
+    // Mengambil token untuk jaga-jaga jika rute index di api.php dimasukkan ke grup auth oleh timmu
+    final token = await _storage.read(key: 'auth_token'); 
+
     try {
-      final response = await http.get(Uri.parse(baseUrl));
+      final response = await http.get(
+        Uri.parse(baseUrl),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+      
+      // INDIKATOR SIDAK DATA (Cek angka ini di Debug Console VS Code saat aplikasi dibuka)
+      print("========== RAMDET DEBUG CATALOG ==========");
+      print("Status Code Respon Server: ${response.statusCode}");
+      
+
       if (response.statusCode == 200) {
-        final List<dynamic> extractedData = jsonDecode(response.body);
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        // REVISI: Ambil dari key ['data'] hasil kembalian sendResponse Controller Laravel
+        final List<dynamic> extractedData = responseData['data'] ?? []; 
         _products = extractedData.map((item) => Product.fromJson(item)).toList();
+      } else {
+        _setDummyData();
       }
     } catch (error) {
-      print("Error terdeteksi: $error. Mengaktifkan data dummy lokal.");
-      
-      // REVISI: Tambahkan properti category agar filter ChoiceChip depan langsung aktif mendeteksi
-      _products = [
-        Product(
-          id: 1, 
-          name: 'Velg Enkei Tuning R17', 
-          price: 7500000, 
-          description: 'Velg original sporty ring 17 cocok untuk mobil sedan.',
-          category: 'Mobil', // Set kategori default
-        ),
-        Product(
-          id: 2, 
-          name: 'Knalpot Racing Akrapovic', 
-          price: 3500000, 
-          description: 'Suara ngebass adem, meningkatkan performa mesin.',
-          category: 'Motor', // Set kategori default
-        ),
-      ];
+      print("Eror fatal koneksi: $error. Mengaktifkan cadangan dummy.");
+      _setDummyData();
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  // 2. CREATE: Menambah Produk Baru ke Katalog (REVISI: Ditambahkan parameter String token)
+  void _setDummyData() {
+    _products = [
+      Product(id: 1, name: 'Velg Enkei Tuning R17', price: 7500000, description: 'Velg original sporty ring 17 cocok untuk mobil sedan.', category: 'mobil'),
+      Product(id: 2, name: 'Knalpot Racing Akrapovic', price: 3500000, description: 'Suara ngebass adem, meningkatkan performa mesin.', category: 'motor'),
+    ];
+  }
+
+  // 2. CREATE: Menambah Produk Baru via Multipart File Gambar Fisik
   Future<bool> addProduct(String token, String name, int price, String description, String category, {Uint8List? imageBytes}) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      final response = await http.post(
-        Uri.parse(baseUrl),
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer $token", // REVISI: Melampirkan Token Sanctum Admin
-        },
-        body: jsonEncode({
-          'name': name,
-          'price': price,
-          'description': description,
-          'category': category,
-        }),
-      );
+      var request = http.MultipartRequest('POST', Uri.parse(baseUrl));
+      request.headers.addAll({
+        "Authorization": "Bearer $token", 
+        "Accept": "application/json",
+      });
 
-      if (response.statusCode == 201 || response.statusCode == 200) {
+      request.fields['name'] = name;
+      request.fields['price'] = price.toString();
+      request.fields['description'] = description;
+      request.fields['category'] = category;
+
+      if (imageBytes != null) {
+        request.files.add(http.MultipartFile.fromBytes(
+          'image', 
+          imageBytes,
+          filename: 'sparepart_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        ));
+      }
+
+      var streamedResponse = await request.send();
+      if (streamedResponse.statusCode == 201 || streamedResponse.statusCode == 200) {
         await fetchProducts(); 
         return true;
       }
       return false;
     } catch (error) {
-      print("Koneksi API Gagal ($error). Mengalihkan penyimpanan ke dummy lokal beserta gambar.");
-
-      final newProduct = Product(
-        id: DateTime.now().millisecondsSinceEpoch, 
-        name: name,
-        price: price,
-        description: description,
-        category: category,
-        imageBytes: imageBytes, 
-      );
-
-      _products.insert(0, newProduct);
-      return true; 
+      print("Gagal tambah produk: $error");
+      return false; 
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  // 3. UPDATE: Mengedit Data Produk Lama (REVISI: Ditambahkan parameter String token)
+  // 3. UPDATE: Mengedit Data Produk Lama Berupa File Multipart
   Future<bool> updateProduct(String token, int id, String name, int price, String description, String category, {Uint8List? imageBytes}) async {
     _isLoading = true;
     notifyListeners();
 
-    // ─── SKEMA REVISI PENGAMANTAN STATUS FAVORIT USER ───
-    // Cari indeks produk lama di memori dan amankan status favorit aslinya
     final index = _products.indexWhere((product) => product.id == id);
     bool currentFavoriteStatus = false;
     if (index >= 0) {
@@ -110,25 +114,29 @@ class ProductProvider with ChangeNotifier {
     }
 
     try {
-      final response = await http.put(
-        Uri.parse('$baseUrl/$id'),
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer $token", // REVISI: Melampirkan Token Sanctum Admin
-        },
-        body: jsonEncode({
-          'name': name,
-          'price': price,
-          'description': description,
-          'category': category,
-        }),
-      );
+      var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/$id'));
+      request.headers.addAll({
+        "Authorization": "Bearer $token", 
+        "Accept": "application/json",
+      });
 
-      if (response.statusCode == 200) {
-        // Ambil list produk terbaru yang ditarik dari database online
+      request.fields['_method'] = 'PUT'; // Mengelabui rute spoofing PUT Laravel
+      request.fields['name'] = name;
+      request.fields['price'] = price.toString();
+      request.fields['description'] = description;
+      request.fields['category'] = category;
+
+      if (imageBytes != null) {
+        request.files.add(http.MultipartFile.fromBytes(
+          'image',
+          imageBytes,
+          filename: 'edit_sparepart_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        ));
+      }
+
+      var streamedResponse = await request.send();
+      if (streamedResponse.statusCode == 200) {
         await fetchProducts();
-        
-        // Kembalikan status favorit ke item baru hasil fetch agar tidak kembali menjadi 'false'
         final newIndex = _products.indexWhere((product) => product.id == id);
         if (newIndex >= 0) {
           _products[newIndex].isFavorite = currentFavoriteStatus;
@@ -137,29 +145,15 @@ class ProductProvider with ChangeNotifier {
       }
       return false;
     } catch (error) {
-      print("Koneksi API Gagal ($error). Mengubah data di dummy lokal.");
-
-      // Jalur Fallback Lokal: masukkan status favorit lama agar tidak reset menjadi false
-      if (index >= 0) {
-        _products[index] = Product(
-          id: id,
-          name: name,
-          price: price,
-          description: description,
-          category: category,
-          isFavorite: currentFavoriteStatus, // STATUS FAVORIT TETAP TERKUNCI AMAN
-          imageBytes: imageBytes ?? _products[index].imageBytes, 
-          image: _products[index].image,
-        );
-      }
-      return true;
+      print("Gagal update produk: $error");
+      return false;
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  // 4. DELETE: Menghapus Produk dari Katalog (REVISI: Ditambahkan parameter String token)
+  // 4. DELETE: Menghapus Produk dari Katalog Berproteksi Token Admin
   Future<bool> deleteProduct(String token, int id) async {
     _isLoading = true;
     notifyListeners();
@@ -168,8 +162,8 @@ class ProductProvider with ChangeNotifier {
       final response = await http.delete(
         Uri.parse('$baseUrl/$id'),
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer $token", // REVISI: Melampirkan Token Sanctum Admin
+          "Authorization": "Bearer $token", 
+          "Accept": "application/json",
         },
       );
       if (response.statusCode == 200) {
@@ -178,23 +172,20 @@ class ProductProvider with ChangeNotifier {
       }
       return false;
     } catch (error) {
-      print("Koneksi API Gagal ($error). Menghapus data dari dummy lokal.");
-
-      // Hapus langsung dari list di memori lokal
-      _products.removeWhere((product) => product.id == id);
-      return true; 
+      print("Gagal hapus produk: $error");
+      return false; 
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  // 5. FAVORITE: Mengubah Status Favorit Produk di Memori Lokal
+  // 5. FAVORITE: Mengubah Status Favorit
   void toggleFavorite(int id) {
     final index = _products.indexWhere((prod) => prod.id == id);
     if (index >= 0) {
       _products[index].isFavorite = !_products[index].isFavorite;
-      notifyListeners(); // Memicu UI Dashboard & Halaman Favorit ter-render instan
+      notifyListeners(); 
     }
   }
 }
