@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/product_provider.dart';
+import '../providers/auth_provider.dart'; // REVISI: Wajib diimport agar AuthProvider dikenali
 
 class AddProductScreen extends StatefulWidget {
   const AddProductScreen({super.key});
@@ -43,6 +44,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Memantau perubahan state isLoading secara pasif/aktif di UI
     final productProvider = Provider.of<ProductProvider>(context);
 
     return Scaffold(
@@ -178,7 +180,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
             ),
             const SizedBox(height: 32),
 
-            // 6. TOMBOL SUBMIT KAPSUL ORANYE SEPERTI KATALOG
+            // 6. TOMBOL SUBMIT KAPSUL ORANYE DENGAN INTEGRASI TOKEN BEARER SANCTUM
             productProvider.isLoading
                 ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF6B00)))
                 : ElevatedButton(
@@ -190,7 +192,13 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     ),
                     onPressed: () async {
                       if (_formKey.currentState!.validate()) {
+                        // REVISI: Ambil string token dari AuthProvider kelompokmu sebelum eksekusi AP
+                        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                        final String adminToken = authProvider.token ?? '';
+
+                        // Jalankan fungsi tambah produk ke provider dengan menyisipkan adminToken
                         final isSuccess = await productProvider.addProduct(
+                          adminToken, // KUNCI UTAMA: Token dilempar ke provider agar tidak ditolak api.php
                           _nameController.text,
                           int.parse(_priceController.text),
                           _descriptionController.text,
@@ -198,11 +206,17 @@ class _AddProductScreenState extends State<AddProductScreen> {
                           imageBytes: _pickedImageBytes,
                         );
 
+                        // Penanganan kondisi setelah await selesai
                         if (isSuccess && mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Produk baru sukses ditambahkan ke katalog!')),
                           );
-                          Navigator.of(context).pop(); // Kembali ke dashboard admin dengan data segar
+                          // Mengeluarkan user dari form screen dan kembali ke katalog utama
+                          Navigator.of(context).pop(); 
+                        } else if (!isSuccess && mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Gagal menyimpan produk. Periksa kembali token hak akses admin Anda.')),
+                          );
                         }
                       }
                     },

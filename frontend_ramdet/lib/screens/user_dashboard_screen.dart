@@ -509,9 +509,16 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                                 backgroundColor: Colors.red[50],
                                 child: IconButton(
                                   icon: const Icon(Icons.delete_outline, size: 14, color: Colors.red),
-                                  onPressed: () {
-                                    productProvider.deleteProduct(product.id!);
-                                  },
+                                  onPressed: () async { // <-- TAMBAHKAN KATA 'async' DI SINI
+                                    // Ambil token dari AuthProvider
+                                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  
+                                    // Ambil nama variabel token aslinya (misal: authToken atau token)
+                                    final String adminToken = authProvider.token ?? ''; 
+
+                                    // Jalankan fungsi dengan aman
+                                    await productProvider.deleteProduct(adminToken, product.id!);
+},
                                 ),
                               ),
                             ],

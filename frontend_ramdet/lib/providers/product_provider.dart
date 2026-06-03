@@ -14,7 +14,7 @@ class ProductProvider with ChangeNotifier {
   // Sesuaikan URL ini dengan path project Laragon lokalmu
   final String baseUrl = 'http://127.0.0.1:8001/api/products';
 
-  // 1. READ: Ambil data katalog dari Laravel
+  // 1. READ: Ambil data katalog dari Laravel (Tanpa token karena rute index bersifat publik)
   Future<void> fetchProducts() async {
     _isLoading = true;
     notifyListeners();
@@ -51,15 +51,18 @@ class ProductProvider with ChangeNotifier {
     }
   }
 
-  // 2. CREATE: Menambah Produk Baru ke Katalog
-  Future<bool> addProduct(String name, int price, String description, String category, {Uint8List? imageBytes}) async {
+  // 2. CREATE: Menambah Produk Baru ke Katalog (REVISI: Ditambahkan parameter String token)
+  Future<bool> addProduct(String token, String name, int price, String description, String category, {Uint8List? imageBytes}) async {
     _isLoading = true;
     notifyListeners();
 
     try {
       final response = await http.post(
         Uri.parse(baseUrl),
-        headers: {"Content-Type": "application/json"},
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token", // REVISI: Melampirkan Token Sanctum Admin
+        },
         body: jsonEncode({
           'name': name,
           'price': price,
@@ -93,8 +96,8 @@ class ProductProvider with ChangeNotifier {
     }
   }
 
-  // 3. UPDATE: Mengedit Data Produk Lama dengan Pengaman Status Favorit User
-  Future<bool> updateProduct(int id, String name, int price, String description, String category, {Uint8List? imageBytes}) async {
+  // 3. UPDATE: Mengedit Data Produk Lama (REVISI: Ditambahkan parameter String token)
+  Future<bool> updateProduct(String token, int id, String name, int price, String description, String category, {Uint8List? imageBytes}) async {
     _isLoading = true;
     notifyListeners();
 
@@ -109,7 +112,10 @@ class ProductProvider with ChangeNotifier {
     try {
       final response = await http.put(
         Uri.parse('$baseUrl/$id'),
-        headers: {"Content-Type": "application/json"},
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token", // REVISI: Melampirkan Token Sanctum Admin
+        },
         body: jsonEncode({
           'name': name,
           'price': price,
@@ -153,13 +159,19 @@ class ProductProvider with ChangeNotifier {
     }
   }
 
-  // 4. DELETE: Menghapus Produk dari Katalog
-  Future<bool> deleteProduct(int id) async {
+  // 4. DELETE: Menghapus Produk dari Katalog (REVISI: Ditambahkan parameter String token)
+  Future<bool> deleteProduct(String token, int id) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      final response = await http.delete(Uri.parse('$baseUrl/$id'));
+      final response = await http.delete(
+        Uri.parse('$baseUrl/$id'),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token", // REVISI: Melampirkan Token Sanctum Admin
+        },
+      );
       if (response.statusCode == 200) {
         await fetchProducts();
         return true;

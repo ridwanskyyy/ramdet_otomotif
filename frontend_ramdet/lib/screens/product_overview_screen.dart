@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../providers/product_provider.dart';
 
 class ProductOverviewScreen extends StatefulWidget {
@@ -169,7 +170,11 @@ class _ProductOverviewScreenState extends State<ProductOverviewScreen> {
             onPressed: () async {
               Navigator.of(ctx).pop();
               if (product.id != null) {
-                await provider.deleteProduct(product.id!);
+                // Ambil token dari AuthProvider
+                final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                final String adminToken = authProvider.token ?? '';
+
+                await provider.deleteProduct(adminToken, product.id!);
               }
             },
           ),

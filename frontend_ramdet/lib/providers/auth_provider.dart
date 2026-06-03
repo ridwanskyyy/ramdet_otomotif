@@ -6,7 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 class AuthProvider with ChangeNotifier {
   final _storage = const FlutterSecureStorage();
-  final String baseUrl = 'http://192.168.100.160:8000/api';
+  final String baseUrl = 'http://127.0.0.1:8001/api';
 
   // Taruh fungsi ini di dalam class AuthProvider kamu, di bawah variabel baseUrl
 String getFullImageUrl(String? path) {
@@ -26,6 +26,7 @@ String getFullImageUrl(String? path) {
   
   String? get role => _role;
   bool get isAdmin => _role == 'admin';
+  String? get token => _token;
 
   // MENGECEK KETERSEDIAAN TOKEN & ROLE DI STORAGE (UNTUK SPLASH SCREEN)
   Future<bool> checkTokenValidity() async {

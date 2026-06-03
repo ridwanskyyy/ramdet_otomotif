@@ -2,6 +2,7 @@ import 'dart:typed_data'; // WAJIB UNTUK FLUTTER WEB
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart'; // IMPORT UNTUK IMAGE PICKER
 import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart'; // IMPORT UNTUK MENGAKSES TOKEN
 import '../models/product.dart';
 import '../providers/product_provider.dart';
 
@@ -79,8 +80,11 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
     final productProvider = Provider.of<ProductProvider>(context, listen: false);
     
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final String adminToken = authProvider.token ?? '';
     // PASTIKAN line "imageBytes" di bawah ini membaca variabel _newWebImage!
     final success = await productProvider.updateProduct(
+      adminToken,
       _product.id!,
       _nameController.text,
       int.parse(_priceController.text),
