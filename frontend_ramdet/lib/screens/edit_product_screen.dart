@@ -42,7 +42,6 @@ class _EditProductScreenState extends State<EditProductScreen> {
       _priceController = TextEditingController(text: _product.price.toString());
       _descController = TextEditingController(text: _product.description ?? '');
       
-      // REVISI 6: Normalkan konversi teks database agar Dropdown tidak crash akibat sensitivitas huruf
       if (_product.category != null) {
         _selectedCategory = _product.category!.toLowerCase() == 'motor' ? 'Motor' : 'Mobil';
       } else {
@@ -141,7 +140,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: const Color(0xFFFF6B00), width: 2),
                             ),
-                            // REVISI 7: Tambahkan opsi NetworkImage untuk pratinjau gambar lama dari server
+                            // REVISI TOTAL: Proteksi berlapis loadingBuilder & errorBuilder agar pratinjau edit anti-freeze
                             child: _newWebImage != null
                                 ? ClipRRect(
                                     borderRadius: BorderRadius.circular(10),
@@ -155,9 +154,37 @@ class _EditProductScreenState extends State<EditProductScreen> {
                                     : (_product.image != null && _product.image!.isNotEmpty)
                                         ? ClipRRect(
                                             borderRadius: BorderRadius.circular(10),
-                                            child: Image.network(authProvider.getFullImageUrl(_product.image), fit: BoxFit.cover),
+                                            child: Image.network(
+                                              authProvider.getFullImageUrl(_product.image), 
+                                              fit: BoxFit.cover,
+                                              loadingBuilder: (context, child, progress) {
+                                                if (progress == null) return child;
+                                                return const Center(
+                                                  child: SizedBox(
+                                                    width: 20,
+                                                    height: 20,
+                                                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF6B00)),
+                                                  ),
+                                                );
+                                              },
+                                              errorBuilder: (context, error, stackTrace) {
+                                                return Icon(
+                                                  _product.category?.toLowerCase() == 'motor' 
+                                                      ? Icons.motorcycle_rounded 
+                                                      : Icons.directions_car_filled_outlined, 
+                                                  size: 50, 
+                                                  color: const Color(0xFFFF6B00)
+                                                );
+                                              },
+                                            ),
                                           )
-                                        : const Icon(Icons.directions_car, size: 50, color: Color(0xFFFF6B00)),
+                                        : Icon(
+                                            _product.category?.toLowerCase() == 'motor' 
+                                                ? Icons.motorcycle_rounded 
+                                                : Icons.directions_car_filled_outlined, 
+                                            size: 50, 
+                                            color: const Color(0xFFFF6B00)
+                                          ),
                           ),
                           Padding(
                             padding: const EdgeInsets.all(8.0),
