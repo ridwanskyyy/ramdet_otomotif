@@ -93,10 +93,18 @@ class ProductProvider with ChangeNotifier {
     }
   }
 
-  // 3. UPDATE: Mengedit Data Produk Lama (REVISI: Ditambahkan parameter opsional imageBytes)
+  // 3. UPDATE: Mengedit Data Produk Lama dengan Pengaman Status Favorit User
   Future<bool> updateProduct(int id, String name, int price, String description, String category, {Uint8List? imageBytes}) async {
     _isLoading = true;
     notifyListeners();
+
+    // ─── SKEMA REVISI PENGAMANTAN STATUS FAVORIT USER ───
+    // Cari indeks produk lama di memori dan amankan status favorit aslinya
+    final index = _products.indexWhere((product) => product.id == id);
+    bool currentFavoriteStatus = false;
+    if (index >= 0) {
+      currentFavoriteStatus = _products[index].isFavorite;
+    }
 
     try {
       final response = await http.put(
@@ -111,15 +119,21 @@ class ProductProvider with ChangeNotifier {
       );
 
       if (response.statusCode == 200) {
+        // Ambil list produk terbaru yang ditarik dari database online
         await fetchProducts();
+        
+        // Kembalikan status favorit ke item baru hasil fetch agar tidak kembali menjadi 'false'
+        final newIndex = _products.indexWhere((product) => product.id == id);
+        if (newIndex >= 0) {
+          _products[newIndex].isFavorite = currentFavoriteStatus;
+        }
         return true;
       }
       return false;
     } catch (error) {
       print("Koneksi API Gagal ($error). Mengubah data di dummy lokal.");
 
-      // Cari indeks produk di memori, lalu perbarui datanya secara lokal
-      final index = _products.indexWhere((product) => product.id == id);
+      // Jalur Fallback Lokal: masukkan status favorit lama agar tidak reset menjadi false
       if (index >= 0) {
         _products[index] = Product(
           id: id,
@@ -127,7 +141,7 @@ class ProductProvider with ChangeNotifier {
           price: price,
           description: description,
           category: category,
-          // REVISI LOGIKA: Gunakan gambar baru jika dipilih, jika tidak (null), pertahankan gambar lama
+          isFavorite: currentFavoriteStatus, // STATUS FAVORIT TETAP TERKUNCI AMAN
           imageBytes: imageBytes ?? _products[index].imageBytes, 
           image: _products[index].image,
         );
