@@ -3,7 +3,7 @@ import 'package:frontend_ramdet/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import '../providers/product_provider.dart';
 import '../models/product.dart';
-import 'profile_screen.dart';
+import 'user/profile/profile_screen.dart';
 
 class UserDashboardScreen extends StatefulWidget {
   const UserDashboardScreen({super.key});
