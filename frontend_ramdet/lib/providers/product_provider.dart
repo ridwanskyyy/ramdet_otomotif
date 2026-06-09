@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data'; 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // Pastikan package ini aktif
+import 'package:flutter_secure_storage/flutter_secure_storage.dart'; 
 import '../models/product.dart';
 
 class ProductProvider with ChangeNotifier {
@@ -13,7 +13,7 @@ class ProductProvider with ChangeNotifier {
   List<Product> get products => _products;
   bool get isLoading => _isLoading;
 
-  // REVISI: Mengamankan alamat IP jembatan emulator LDPlayer ke port 8001 Laragon kalian
+  // URL utama katalog produk
   final String baseUrl = 'http://192.168.1.3:8001/api/products';
 
   // 1. READ: Ambil data katalog dari Laravel
@@ -21,7 +21,6 @@ class ProductProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    // Mengambil token untuk jaga-jaga jika rute index di api.php dimasukkan ke grup auth oleh timmu
     final token = await _storage.read(key: 'auth_token'); 
 
     try {
@@ -33,16 +32,19 @@ class ProductProvider with ChangeNotifier {
         },
       );
       
-      // INDIKATOR SIDAK DATA (Cek angka ini di Debug Console VS Code saat aplikasi dibuka)
       print("========== RAMDET DEBUG CATALOG ==========");
       print("Status Code Respon Server: ${response.statusCode}");
       
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
-        // REVISI: Ambil dari key ['data'] hasil kembalian sendResponse Controller Laravel
         final List<dynamic> extractedData = responseData['data'] ?? []; 
         _products = extractedData.map((item) => Product.fromJson(item)).toList();
+
+        // REVISI OTOMATIS: Jika user dalam kondisi login, langsung sinkronkan status favoritnya
+        if (token != null) {
+          await fetchFavorites();
+        }
       } else {
         _setDummyData();
       }
@@ -120,7 +122,7 @@ class ProductProvider with ChangeNotifier {
         "Accept": "application/json",
       });
 
-      request.fields['_method'] = 'PUT'; // Mengelabui rute spoofing PUT Laravel
+      request.fields['_method'] = 'PUT'; 
       request.fields['name'] = name;
       request.fields['price'] = price.toString();
       request.fields['description'] = description;
@@ -180,12 +182,84 @@ class ProductProvider with ChangeNotifier {
     }
   }
 
-  // 5. FAVORITE: Mengubah Status Favorit
-  void toggleFavorite(int id) {
+  // 5. REVISI BARU - FETCH FAVORITES: Ambil daftar favorit milik user dari server Laravel
+  Future<void> fetchFavorites() async {
+    final token = await _storage.read(key: 'auth_token');
+    
+    // Jika tidak login / token kosong, matikan semua status favorit di lokal
+    if (token == null) {
+      for (var product in _products) {
+        product.isFavorite = false;
+      }
+      notifyListeners();
+      return;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('http://192.168.1.3:8001/api/favorites'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        final List<dynamic> favoriteData = responseData['data'] ?? [];
+        
+        // Ambil semua ID produk yang masuk daftar favorit di database Laravel
+        final List<int> favIds = favoriteData.map((item) => item['id'] as int).toList();
+
+        // COCOKKAN DATA: Nyalakan isFavorite jika ID produknya ada di daftar database
+        for (var product in _products) {
+          product.isFavorite = favIds.contains(product.id);
+        }
+        notifyListeners();
+      }
+    } catch (error) {
+      print("Gagal mengambil data favorit dari API: $error");
+    }
+  }
+
+  // 6. REVISI TOTAL - TOGGLE FAVORITE: Kirim data secara permanen ke API Laravel
+  Future<bool> toggleFavorite(int id) async {
+    final token = await _storage.read(key: 'auth_token');
+    if (token == null) return false;
+
     final index = _products.indexWhere((prod) => prod.id == id);
-    if (index >= 0) {
-      _products[index].isFavorite = !_products[index].isFavorite;
-      notifyListeners(); 
+    if (index < 0) return false;
+
+    // Langkah Kritis (Optimistic Update): Ubah dulu di lokal agar UI terasa instan tanpa delay koneksi
+    final originalStatus = _products[index].isFavorite;
+    _products[index].isFavorite = !originalStatus;
+    notifyListeners();
+
+    try {
+      final response = await http.post(
+        Uri.parse('http://192.168.1.3:8001/api/favorites/toggle'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'product_id': id}),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return true; 
+      } else {
+        // ROLLBACK: Kembalikan ke status semula kalau server mengembalikan status gagal
+        _products[index].isFavorite = originalStatus;
+        notifyListeners();
+        return false;
+      }
+    } catch (error) {
+      print("Gagal melakukan sinkronisasi toggle favorite: $error");
+      // ROLLBACK: Kembalikan ke status semula jika terjadi kendala koneksi internet/server mati
+      _products[index].isFavorite = originalStatus;
+      notifyListeners();
+      return false;
     }
   }
 }
