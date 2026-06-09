@@ -3,13 +3,23 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProductController; 
 use App\Http\Controllers\Api\FavoriteController; 
+use App\Http\Controllers\Api\UserController; 
 use App\Http\Middleware\CheckAdmin; 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+// -------------------------------------------------------------
+// RUTE PUBLIK (Bisa diakses siapa saja, TERMASUK setelah LOGOUT)
+// -------------------------------------------------------------
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
+// Pindahkan ke sini agar data seeder & produk bisa muncul di dashboard publik
+Route::apiResource('products', ProductController::class)->only(['index', 'show']);
+
+// -------------------------------------------------------------
+// RUTE PROTEKSI (Wajib Login / Harus Bawa Token Sanctum)
+// -------------------------------------------------------------
 Route::middleware('auth:sanctum')->group(function () {
     
     // 1. Rute Profil & Otentikasi
@@ -21,35 +31,24 @@ Route::middleware('auth:sanctum')->group(function () {
         ], 200);
     });
     Route::put('/user', [AuthController::class, 'updateProfile']);
-    
-    // REVISI: Tambahkan baris POST murni ini agar bisa menerima Multipart FormData dari Flutter
     Route::post('/user/update', [AuthController::class, 'updateProfile']); 
-    // Rute khusus mengubah password akun
-Route::post('/user/change-password', [AuthController::class, 'changePassword']);
+    Route::post('/user/change-password', [AuthController::class, 'changePassword']);
     Route::post('/logout', [AuthController::class, 'logout']);
     
-    // 2. Rute Favorit (Bisa diakses semua user yang login)
+    // 2. Rute Favorit
     Route::get('/favorites', [FavoriteController::class, 'index']);
     Route::post('/favorites/toggle', [FavoriteController::class, 'toggleFavorite']);
 
-    // 3. Rute Produk untuk SEMUA USER (User & Admin) - Hanya Melihat List & Detail
-    // Proteksi hak akses admin dipindahkan ke dalam Controller demi keamanan
-    Route::apiResource('products', ProductController::class)->only(['index', 'show'])->missing(function (Request $request) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Gagal memproses! Data produk tidak tersedia atau sudah dihapus.'
-        ], 404);
-    });
-
-    // 4. Rute Produk KHUSUS ADMIN - Tambah (Store), Ubah (Update), Hapus (Destroy)
+    // 3. Rute KHUSUS ADMIN (Tambah, Edit, Hapus Produk & User)
     Route::middleware(CheckAdmin::class)->group(function () {
         
-        Route::apiResource('products', ProductController::class)->except(['index', 'show'])->missing(function (Request $request) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal memproses! Data produk tidak tersedia atau sudah dihapus.'
-            ], 404);
-        });
+        // Pengelolaan Produk oleh Admin
+        Route::apiResource('products', ProductController::class)->except(['index', 'show']);
+        
+        // Rute Pengelolaan User
+        Route::get('/users', [UserController::class, 'index']);
+        Route::post('/users', [UserController::class, 'store']);
+        Route::put('/users/{id}', [UserController::class, 'update']);
         
     });
 

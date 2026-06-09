@@ -23,6 +23,21 @@ class ProductController extends Controller
         }
         
         $products = $query->get();
+
+        // REVISI: Transformasi string mentah menjadi URL utuh untuk Flutter
+        $products->transform(function ($product) {
+            if ($product->image) {
+                // Jika string di DB sudah diawali 'storage/', langsung bungkus asset()
+                if (str_starts_with($product->image, 'storage/')) {
+                    $product->image = asset($product->image);
+                } else {
+                    // Jika dari seeder (hanya 'products/...'), tambahkan prefix 'storage/'
+                    $product->image = asset('storage/' . $product->image);
+                }
+            }
+            return $product;
+        });
+
         return $this->sendResponse($products, 'Daftar data produk berhasil diambil.');
     }
 
@@ -54,11 +69,25 @@ class ProductController extends Controller
 
         $product = Product::create($data);
         
+        // Response data baru juga dibungkus URL penuh
+        if ($product->image) {
+            $product->image = asset($product->image);
+        }
+        
         return $this->sendResponse($product, 'Produk berhasil ditambahkan.', 201);
     }
 
     public function show(Product $product)
     {
+        // REVISI: Transformasi URL untuk detail produk tunggal
+        if ($product->image) {
+            if (str_starts_with($product->image, 'storage/')) {
+                $product->image = asset($product->image);
+            } else {
+                $product->image = asset('storage/' . $product->image);
+            }
+        }
+
         return $this->sendResponse($product, 'Detail produk berhasil ditampilkan.');
     }
 
@@ -91,6 +120,10 @@ class ProductController extends Controller
         }
 
         $product->update($data);
+        
+        if ($product->image) {
+            $product->image = asset($product->image);
+        }
         
         return $this->sendResponse($product, 'Data produk berhasil diperbarui.');
     }

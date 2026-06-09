@@ -15,8 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
     })
-    ->withExceptions(function (Exceptions $exceptions): void {
+   ->withExceptions(function (Exceptions $exceptions): void {
         
+        // Handle error jika belum login
         $exceptions->render(function (AuthenticationException $e, Request $request) {
             if ($request->is('api/*')) {
                 return response()->json([
@@ -24,6 +25,16 @@ return Application::configure(basePath: dirname(__DIR__))
                     'message' => 'Gagal memproses! Anda harus login terlebih dahulu.',
                     'data' => null
                 ], 401);
+            }
+        });
+
+        // BARU: Handle global jika data produk atau data apapun tidak ditemukan (404) di API
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal memproses! Data tidak tersedia atau sudah dihapus.'
+                ], 404);
             }
         });
 
