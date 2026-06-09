@@ -14,7 +14,7 @@ class ProductProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
 
   // REVISI: Mengamankan alamat IP jembatan emulator LDPlayer ke port 8001 Laragon kalian
-  final String baseUrl = 'http://192.168.100.62:8001/api/products';
+  final String baseUrl = 'http://192.168.1.3:8001/api/products';
 
   // 1. READ: Ambil data katalog dari Laravel
   Future<void> fetchProducts() async {

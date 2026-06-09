@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/product_provider.dart'; 
-import 'screens/splash_screen.dart';
-import 'screens/login_screen.dart';
-import 'screens/register_screen.dart'; 
-import 'screens/profile_screen.dart';
-import 'screens/detail_product_screen.dart';
-import 'screens/edit_product_screen.dart';
+import 'screens/auth/splash_screen.dart';
+import 'screens/auth/login_screen.dart';
+import 'screens/auth/register_screen.dart'; 
+import 'screens/user/profile/profile_screen.dart';
+import 'screens/user/features/detail_product_screen.dart';
+import 'screens/admin/edit_product_screen.dart';
 import 'screens/user_dashboard_screen.dart';
-import 'screens/product_overview_screen.dart'; 
-import 'screens/add_product_screen.dart';
+import 'screens/user/features/product_overview_screen.dart'; 
+import 'screens/admin/add_product_screen.dart';
 
 void main() {
   runApp(
