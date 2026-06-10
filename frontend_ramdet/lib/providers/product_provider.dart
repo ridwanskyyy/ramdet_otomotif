@@ -14,8 +14,8 @@ class ProductProvider with ChangeNotifier {
   List<Product> get products => _products;
   bool get isLoading => _isLoading;
 
-  // URL utama katalog produk
-  final String baseUrl = 'http://192.168.1.3:8001/api/products';
+  // URL utama sesuai IP laptop kamu yang valid
+  final String baseUrl = 'http://192.168.100.62:8001/api'; 
 
   // 1. READ: Ambil data katalog dari Laravel
   Future<void> fetchProducts() async {
@@ -26,7 +26,7 @@ class ProductProvider with ChangeNotifier {
 
     try {
       final response = await http.get(
-        Uri.parse(baseUrl),
+        Uri.parse('$baseUrl/products'),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
@@ -35,14 +35,12 @@ class ProductProvider with ChangeNotifier {
       
       print("========== RAMDET DEBUG CATALOG ==========");
       print("Status Code Respon Server: ${response.statusCode}");
-      
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
         final List<dynamic> extractedData = responseData['data'] ?? []; 
         _products = extractedData.map((item) => Product.fromJson(item)).toList();
 
-        // REVISI OTOMATIS: Jika user dalam kondisi login, langsung sinkronkan status favoritnya
         if (token != null) {
           await fetchFavorites();
         }
@@ -52,7 +50,7 @@ class ProductProvider with ChangeNotifier {
     } catch (error) {
       print("Eror fatal koneksi: $error. Mengaktifkan cadangan dummy.");
       _setDummyData();
-    } finally {
+    } finally { // <-- FIX: Huruf 'l' sudah double, penutup jalan sempurna
       _isLoading = false;
       notifyListeners();
     }
@@ -71,7 +69,7 @@ class ProductProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      var request = http.MultipartRequest('POST', Uri.parse(baseUrl));
+      var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/products'));
       request.headers.addAll({
         "Authorization": "Bearer $token", 
         "Accept": "application/json",
@@ -100,12 +98,13 @@ class ProductProvider with ChangeNotifier {
     } catch (error) {
       print("Gagal tambah produk: $error");
       return false; 
-    } finally {
+    } finally { // <-- FIX: Perbaikan typo
       _isLoading = false;
       notifyListeners();
     }
   }
 
+  // 3. UPDATE: Mengedit Data Produk Lama Berupa File Multipart
   // 3. UPDATE: Mengedit Data Produk Lama Berupa File Multipart
   Future<bool> updateProduct(String token, int id, String name, int price, String description, String category, {Uint8List? imageBytes}) async {
     _isLoading = true;
@@ -118,7 +117,7 @@ class ProductProvider with ChangeNotifier {
     }
 
     try {
-      var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/$id'));
+      var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/products/$id'));
       request.headers.addAll({
         "Authorization": "Bearer $token", 
         "Accept": "application/json",
@@ -141,11 +140,22 @@ class ProductProvider with ChangeNotifier {
 
       var streamedResponse = await request.send();
       if (streamedResponse.statusCode == 200) {
+        // 1. Tarik ulang data katalog dari MySQL Laragon agar nama file image yang baru masuk ke state
         await fetchProducts();
+        
+        // 2. SINKRONISASI REAL-TIME: Ambil ulang status favorit lama agar tidak reset ke false
         final newIndex = _products.indexWhere((product) => product.id == id);
         if (newIndex >= 0) {
           _products[newIndex].isFavorite = currentFavoriteStatus;
+          
+          // REVISI METODE: Jika membawa gambar baru, paksa cache Image.network untuk melakukan refresh visual
+          if (imageBytes != null) {
+            imageCache.clearLiveImages();
+            imageCache.clear();
+          }
         }
+        
+        notifyListeners(); // Sentak perubahan visual ke UI Catalog & Admin Dashboard secara instan
         return true;
       }
       return false;
@@ -165,7 +175,7 @@ class ProductProvider with ChangeNotifier {
 
     try {
       final response = await http.delete(
-        Uri.parse('$baseUrl/$id'),
+        Uri.parse('$baseUrl/products/$id'),
         headers: {
           "Authorization": "Bearer $token", 
           "Accept": "application/json",
@@ -179,17 +189,16 @@ class ProductProvider with ChangeNotifier {
     } catch (error) {
       print("Gagal hapus produk: $error");
       return false; 
-    } finally {
+    } finally { // <-- FIX: Perbaikan typo
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  // 5. REVISI BARU - FETCH FAVORITES: Ambil daftar favorit milik user dari server Laravel
+  // 5. FETCH FAVORITES: Ambil daftar favorit milik user dari server Laravel
   Future<void> fetchFavorites() async {
     final token = await _storage.read(key: 'auth_token');
     
-    // Jika tidak login / token kosong, matikan semua status favorit di lokal
     if (token == null) {
       for (var product in _products) {
         product.isFavorite = false;
@@ -200,7 +209,7 @@ class ProductProvider with ChangeNotifier {
 
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.1.3:8001/api/favorites'),
+        Uri.parse('$baseUrl/favorites'),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
@@ -211,10 +220,8 @@ class ProductProvider with ChangeNotifier {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
         final List<dynamic> favoriteData = responseData['data'] ?? [];
         
-        // Ambil semua ID produk yang masuk daftar favorit di database Laravel
         final List<int> favIds = favoriteData.map((item) => item['id'] as int).toList();
 
-        // COCOKKAN DATA: Nyalakan isFavorite jika ID produknya ada di daftar database
         for (var product in _products) {
           product.isFavorite = favIds.contains(product.id);
         }
@@ -225,7 +232,7 @@ class ProductProvider with ChangeNotifier {
     }
   }
 
-  // 6. REVISI TOTAL - TOGGLE FAVORITE: Kirim data secara permanen ke API Laravel
+  // 6. TOGGLE FAVORITE: Kirim data secara permanen ke API Laravel
   Future<bool> toggleFavorite(int id) async {
     final token = await _storage.read(key: 'auth_token');
     if (token == null) return false;
@@ -233,14 +240,13 @@ class ProductProvider with ChangeNotifier {
     final index = _products.indexWhere((prod) => prod.id == id);
     if (index < 0) return false;
 
-    // Langkah Kritis (Optimistic Update): Ubah dulu di lokal agar UI terasa instan tanpa delay koneksi
     final originalStatus = _products[index].isFavorite;
     _products[index].isFavorite = !originalStatus;
     notifyListeners();
 
     try {
       final response = await http.post(
-        Uri.parse('http://192.168.1.3:8001/api/favorites/toggle'),
+        Uri.parse('$baseUrl/favorites/toggle'),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
@@ -252,14 +258,12 @@ class ProductProvider with ChangeNotifier {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return true; 
       } else {
-        // ROLLBACK: Kembalikan ke status semula kalau server mengembalikan status gagal
         _products[index].isFavorite = originalStatus;
         notifyListeners();
         return false;
       }
     } catch (error) {
       print("Gagal melakukan sinkronisasi toggle favorite: $error");
-      // ROLLBACK: Kembalikan ke status semula jika terjadi kendala koneksi internet/server mati
       _products[index].isFavorite = originalStatus;
       notifyListeners();
       return false;

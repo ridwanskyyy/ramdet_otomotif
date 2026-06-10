@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend_ramdet/screens/user/profile/change_password_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import '../../../providers/auth_provider.dart';
+import '../../../../providers/auth_provider.dart'; // Menyesuaikan hirarki folder baru
 
 class EditProfilScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -25,6 +25,9 @@ class _EditProfilScreenState extends State<EditProfilScreen> {
   XFile? _selectedImage; 
   final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
+  
+  // REVISI MUTLAK: Kunci pengaman anti double-click galeri pencegah PlatformException
+  bool _isPickingImage = false; 
 
   final List<String> _memberTiers = ['bronze', 'silver', 'gold', 'platinum'];
 
@@ -58,10 +61,30 @@ class _EditProfilScreenState extends State<EditProfilScreen> {
   }
 
   Future<void> _pickImage() async {
-    final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
-    if (pickedFile != null) {
+    // Jika galeri sedang terbuka, abaikan ketukan tambahan apa pun
+    if (_isPickingImage) return;
+
+    setState(() {
+      _isPickingImage = true;
+    });
+
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery, 
+        imageQuality: 80,
+      );
+      
+      if (pickedFile != null) {
+        setState(() {
+          _selectedImage = pickedFile;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error saat memilih gambar: $e");
+    } finally {
+      // Buka kembali kunci setelah sistem selesai memproses gambar atau batal
       setState(() {
-        _selectedImage = pickedFile;
+        _isPickingImage = false;
       });
     }
   }
@@ -118,6 +141,7 @@ class _EditProfilScreenState extends State<EditProfilScreen> {
       appBar: AppBar(
         backgroundColor: bgLight,
         elevation: 0,
+        iconTheme: const IconThemeData(color: rustBrown),
         title: const Text('Ramdet Otomotif', style: TextStyle(color: rustBrown, fontWeight: FontWeight.bold, fontSize: 18)),
       ),
       body: SingleChildScrollView(
@@ -141,7 +165,6 @@ class _EditProfilScreenState extends State<EditProfilScreen> {
                           image: _selectedImage != null
                               ? DecorationImage(image: FileImage(File(_selectedImage!.path)), fit: BoxFit.cover)
                               : DecorationImage(
-                                  // REVISI: Menggunakan fungsi getFullImageUrl untuk menarik gambar lama dari server Laragon
                                   image: NetworkImage(authProvider.getFullImageUrl(photoPath)), 
                                   fit: BoxFit.cover,
                                 ),
@@ -166,48 +189,50 @@ class _EditProfilScreenState extends State<EditProfilScreen> {
               _buildInputField('Alamat Utama', _addressController, Icons.location_on_outlined, inputBg, null),
               
               Align(
-  alignment: Alignment.centerRight,
-  child: TextButton.icon(
-    onPressed: () {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const ChangePasswordScreen()),
-      );
-    },
-    icon: const Icon(Icons.lock_reset_rounded, color: rustBrown, size: 20),
-    label: const Text(
-      'Ubah Password Akun',
-      style: TextStyle(color: rustBrown, fontWeight: FontWeight.bold, fontSize: 13),
-    ),
-  ),
-),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Status Membership', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: _selectedMemberStatus,
-                    items: _memberTiers.map((tier) {
-                      return DropdownMenuItem(
-                        value: tier,
-                        child: Text(tier.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold)),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() { _selectedMemberStatus = value!; });
-                    },
-                    decoration: InputDecoration(
-                      prefixIcon: const Icon(Icons.workspace_premium_outlined, color: Colors.grey),
-                      filled: true,
-                      fillColor: inputBg,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
-                    ),
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const ChangePasswordScreen()),
+                    );
+                  },
+                  icon: const Icon(Icons.lock_reset_rounded, color: rustBrown, size: 20),
+                  label: const Text(
+                    'Ubah Password Akun',
+                    style: TextStyle(color: rustBrown, fontWeight: FontWeight.bold, fontSize: 13),
                   ),
-                ],
+                ),
               ),
               
-              const SizedBox(height: 32),
+              if (authProvider.isAdmin) ...[
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Status Membership', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: _selectedMemberStatus,
+                      items: _memberTiers.map((tier) {
+                        return DropdownMenuItem(
+                          value: tier,
+                          child: Text(tier.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() { _selectedMemberStatus = value!; });
+                      },
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.workspace_premium_outlined, color: Colors.grey),
+                        filled: true,
+                        fillColor: inputBg,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+              ],
 
               SizedBox(
                 width: double.infinity,
