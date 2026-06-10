@@ -6,21 +6,34 @@ import 'package:image_picker/image_picker.dart';
 
 class AuthProvider with ChangeNotifier {
   final _storage = const FlutterSecureStorage();
-  final String baseUrl = 'http://192.168.100.62:8001/api';
+  final String baseUrl = 'http://192.168.1.3:8001/api';
 
   // Taruh fungsi ini di dalam class AuthProvider kamu, di bawah variabel baseUrl
 String getFullImageUrl(String? path) {
   if (path == null || path.isEmpty) return 'https://via.placeholder.com/150';
 
-  final rootUrl = baseUrl.replaceAll('/api', '');
+  final cleanPath = path.trim();
 
-  // JIKA path dari database ternyata sudah otomatis berawalan 'storage/'
-    if (path.startsWith('storage/')) {
-    return '$rootUrl/$path';
+  // 🎯 KUNCI PENYEMBUHAN: Jika dari database sudah berupa URL lengkap, langsung return!
+  if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) {
+    print('🔗 URL GAMBAR RAMDET (Sudah Matang): $cleanPath');
+    return cleanPath;
   }
-  
-  // Memotong kata '/api' dari baseUrl milikmu agar tersisa IP host utama 'http://10.0.2.2:8000'
-  return '$rootUrl/storage/$path';
+
+  // Logika cadangan jika sewaktu-waktu backend mengirim path mentah biasa
+  final rootUrl = baseUrl.replaceAll('/api', '');
+  String finalUrl;
+
+  if (cleanPath.startsWith('storage/')) {
+    finalUrl = '$rootUrl/$cleanPath';
+  } else if (cleanPath.startsWith('/')) {
+    finalUrl = '$rootUrl/storage$cleanPath';
+  } else {
+    finalUrl = '$rootUrl/storage/$cleanPath';
+  }
+
+  print('🔗 URL GAMBAR RAMDET (Hasil Gabungan): $finalUrl');
+  return finalUrl;
 }
 
   bool _isLoading = false;

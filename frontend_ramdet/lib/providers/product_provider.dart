@@ -15,7 +15,7 @@ class ProductProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
 
   // URL utama sesuai IP laptop kamu yang valid
-  final String baseUrl = 'http://192.168.100.62:8001/api'; 
+  final String baseUrl = 'http://192.168.1.3:8001/api'; 
 
   // 1. READ: Ambil data katalog dari Laravel
   Future<void> fetchProducts() async {

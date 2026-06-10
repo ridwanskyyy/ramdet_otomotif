@@ -43,7 +43,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
       final token = await _storage.read(key: 'auth_token');
       final response = await http.get(
         // REVISI IP: Menggunakan IP Fisik Laptop agar tidak Timeout
-        Uri.parse('http://192.168.100.62:8001/api/users'),
+        Uri.parse('http://192.168.1.3:8001/api/users'),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
@@ -661,16 +661,16 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                   borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                 ),
                 child: product.imageBytes != null
-                    ? ClipRRect(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                        child: Image.memory(product.imageBytes!, fit: BoxFit.cover),
+                    ? Padding(
+                        padding: const EdgeInsets.all(16.0), // 🎯 REVISI: Spasi bodi aman gambar memori
+                        child: Image.memory(product.imageBytes!, fit: BoxFit.contain), // 🎯 REVISI: contain
                       )
                     : (product.image != null && product.image!.isNotEmpty)
-                        ? ClipRRect(
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                        ? Padding(
+                            padding: const EdgeInsets.all(16.0), // 🎯 REVISI: Spasi bodi aman gambar network
                             child: Image.network(
                               authProvider.getFullImageUrl(product.image),
-                              fit: BoxFit.cover,
+                              fit: BoxFit.contain, // 🎯 REVISI: Mengubah ke contain agar tidak kepotong
                               loadingBuilder: (context, child, progress) {
                                 if (progress == null) return child;
                                 return const Center(child: CircularProgressIndicator(color: Color(0xFFFF6B00)));
