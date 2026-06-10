@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart'; 
+import 'package:http_parser/http_parser.dart';
 import '../models/product.dart';
 
 class ProductProvider with ChangeNotifier {
@@ -86,6 +87,7 @@ class ProductProvider with ChangeNotifier {
           'image', 
           imageBytes,
           filename: 'sparepart_${DateTime.now().millisecondsSinceEpoch}.jpg',
+          contentType: MediaType('image', 'jpeg'),
         ));
       }
 
@@ -133,6 +135,7 @@ class ProductProvider with ChangeNotifier {
           'image',
           imageBytes,
           filename: 'edit_sparepart_${DateTime.now().millisecondsSinceEpoch}.jpg',
+          contentType: MediaType('image', 'jpeg'),
         ));
       }
 

@@ -29,4 +29,4 @@ flutter:
   # Catatan: Jika kedepannya ingin menambahkan aset gambar logo buatan sendiri 
   # untuk dipasang pada SplashScreen atau LoginScreen, silakan aktifkan bagian di bawah ini:
   # assets:
-  #   - assets/images/
+    - assets/images/

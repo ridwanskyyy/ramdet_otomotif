@@ -11,10 +11,16 @@ class AuthProvider with ChangeNotifier {
   // Taruh fungsi ini di dalam class AuthProvider kamu, di bawah variabel baseUrl
 String getFullImageUrl(String? path) {
   if (path == null || path.isEmpty) return 'https://via.placeholder.com/150';
+
+  final rootUrl = baseUrl.replaceAll('/api', '');
+
+  // JIKA path dari database ternyata sudah otomatis berawalan 'storage/'
+    if (path.startsWith('storage/')) {
+    return '$rootUrl/$path';
+  }
   
   // Memotong kata '/api' dari baseUrl milikmu agar tersisa IP host utama 'http://10.0.2.2:8000'
-  final rootUrl = baseUrl.replaceAll('/api', '');
-  return '$rootUrl/$path';
+  return '$rootUrl/storage/$path';
 }
 
   bool _isLoading = false;
