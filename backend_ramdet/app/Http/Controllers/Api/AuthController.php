@@ -12,12 +12,14 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $request->validate([
-            'name' => 'required|string',
-            'email' => 'required|string|email|unique:users',
-            'password' => 'required|string|min:8',
-            'phone_number' => 'required|string|max:20', 
-            'address' => 'required|string'               
-        ]);
+    'name' => 'required|string|max:255',
+    'email' => 'required|string|email|max:255|unique:users',
+    'password' => 'required|string|min:8',
+    'phone_number' => 'nullable|string', // Atau 'phone' => 'nullable' sesuai struktur tabel
+    'address' => 'nullable|string',
+    'role' => 'required|string',
+    'membership_status' => 'required|string',
+]);
 
         // SEKARANG AMAN: Semua key array di bawah ini sudah punya kolom aslinya di DB & Model
         $user = User::create([
@@ -26,7 +28,8 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
             'phone_number' => $request->phone_number, 
             'address' => $request->address,           
-            'membership_status' => 'bronze' // Masuk ke enum kasta terendah secara otomatis
+            'membership_status' => $request->membership_status,
+            'role' => $request->role,
         ]);
 
         $data['access_token'] = $user->createToken('auth_token')->plainTextToken;

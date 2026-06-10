@@ -1,9 +1,13 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:frontend_ramdet/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import '../providers/product_provider.dart';
 import '../models/product.dart';
 import 'user/profile/profile_screen.dart';
+import 'admin/user_management_screen.dart'; // IMPORT HALAMAN BARU
 
 class UserDashboardScreen extends StatefulWidget {
   const UserDashboardScreen({super.key});
@@ -16,18 +20,47 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
   int _currentIndex = 0;
   String _selectedCategory = 'Semua';
   late Future<Map<String, dynamic>?> _profileFuture;
+  
+  int _totalUsersCount = 0; // State penampung jumlah user asli dari DB
+  final _storage = const FlutterSecureStorage();
 
   @override
   void initState() {
     super.initState();
     _profileFuture = Provider.of<AuthProvider>(context, listen: false).getProfile();
     
-    // Otomatis tarik katalog data riil dari MySQL Laragon sejak pertama kali aplikasi dibuka
     Future.delayed(Duration.zero, () {
       if (mounted) {
         Provider.of<ProductProvider>(context, listen: false).fetchProducts();
+        _fetchRealUsersCount(); // Ambil jumlah user riil dari database MySQL
       }
     });
+  }
+
+  // Fungsi mengambil jumlah user riil dari database untuk dipajang di kartu statistik
+  Future<void> _fetchRealUsersCount() async {
+    try {
+      final token = await _storage.read(key: 'auth_token');
+      final response = await http.get(
+        // REVISI IP: Menggunakan IP Fisik Laptop agar tidak Timeout
+        Uri.parse('http://192.168.100.62:8001/api/users'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        final List<dynamic> usersData = responseData['data'] ?? [];
+        if (mounted) {
+          setState(() {
+            _totalUsersCount = usersData.length;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Gagal mengambil statistik user dari DB: $e");
+    }
   }
 
   @override
@@ -137,7 +170,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
     );
   }
 
-  // === HALAMAN UTAMA: KATALOG USER ===
   Widget _buildCatalogPage() {
     final productProvider = Provider.of<ProductProvider>(context);
     
@@ -287,7 +319,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
     );
   }
 
-  // === HALAMAN: PRODUK FAVORIT SAYA ===
   Widget _buildFavoritePage() {
     final productProvider = Provider.of<ProductProvider>(context);
     final favoriteProducts = productProvider.products.where((p) => p.isFavorite).toList();
@@ -326,10 +357,9 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
     );
   }
 
-  // === HALAMAN: DASHBOARD MANAGEMENT ADMIN ===
+  // === HALAMAN: DASHBOARD UTAMA ADMIN ===
   Widget _buildAdminDashboardPage() {
     final productProvider = Provider.of<ProductProvider>(context);
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final products = productProvider.products;
 
     final int totalProducts = products.length;
@@ -352,7 +382,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Dashboard Produk',
+                'Dashboard Admin',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
               ),
               Container(
@@ -379,11 +409,23 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
             ],
           ),
           const SizedBox(height: 16),
+          
+          _buildStatCard(
+            'Total Pengguna Terdaftar', 
+            _totalUsersCount.toString(), 
+            'KELOLA USER', 
+            Colors.blue,
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const UserManagementScreen()),
+              ).then((_) => _fetchRealUsersCount()); // Refresh jumlah pas balik
+            }
+          ),
+          const SizedBox(height: 12),
           _buildStatCard('Total Products', totalProducts.toString(), '+12%', Colors.black54),
           const SizedBox(height: 12),
           _buildStatCard('Low Stock', lowStockCount.toString(), 'CRITICAL', Colors.red, isAlert: true),
-          const SizedBox(height: 12),
-          _buildStatCard('Total Sales', '432', '📈', Colors.black54),
+          
           const SizedBox(height: 20),
           Row(
             children: [
@@ -458,7 +500,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                               color: Color(0xFFF1F3F5),
                               shape: BoxShape.circle,
                             ),
-                            // REVISI INTEGRASI: Image.network super aman khusus dashboard admin
                             child: product.imageBytes != null
                                 ? ClipRRect(
                                     borderRadius: BorderRadius.circular(32),
@@ -468,7 +509,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                                     ? ClipRRect(
                                         borderRadius: BorderRadius.circular(32),
                                         child: Image.network(
-                                          authProvider.getFullImageUrl(product.image),
+                                          Provider.of<AuthProvider>(context, listen: false).getFullImageUrl(product.image),
                                           fit: BoxFit.cover,
                                           loadingBuilder: (context, child, progress) {
                                             if (progress == null) return child;
@@ -535,8 +576,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
                                 child: IconButton(
                                   icon: const Icon(Icons.delete_outline, size: 14, color: Colors.red),
                                   onPressed: () async { 
-                                    final String adminToken = authProvider.token ?? ''; 
-                                    await productProvider.deleteProduct(adminToken, product.id!);
+                                    final String adminToken = Provider.of<AuthProvider>(context, listen: false).token ?? ''; 
+                                    await Provider.of<ProductProvider>(context, listen: false).deleteProduct(adminToken, product.id!);
                                   },
                                 ),
                               ),
@@ -552,8 +593,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
     );
   }
 
-  Widget _buildStatCard(String title, String value, String badge, Color badgeColor, {bool isAlert = false}) {
-    return Container(
+  Widget _buildStatCard(String title, String value, String badge, Color badgeColor, {bool isAlert = false, VoidCallback? onTap}) {
+    final card = Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
@@ -575,7 +616,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: isAlert ? Colors.red[50] : Colors.grey[50],
+              color: isAlert ? Colors.red[50] : (onTap != null ? badgeColor.withOpacity(0.1) : Colors.grey[50]),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -586,9 +627,17 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
         ],
       ),
     );
+
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: card,
+      );
+    }
+    return card;
   }
 
-  // === REUSABLE WIDGET: KARTU PRODUK KATALOG USER ===
   Widget _buildProductCard(Product product, ProductProvider provider) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
@@ -604,7 +653,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen> {
         children: [
           Stack(
             children: [
-              // REVISI INTEGRASI: Image.network super aman khusus halaman katalog user utama
               Container(
                 height: 240,
                 width: double.infinity,
